@@ -152,7 +152,16 @@ class Nginx2ES(object):
         d['@host'] = self.hostname
 
         d['request_path'], d['request_qs'] = splitquery(d['request'])
-        d['query'] = parse_qs(d['request_qs'])
+
+        if d['request_qs'] is None:
+            del d['request_qs']
+        else:
+            d['query'] = parse_qs(d['request_qs'])
+            if 'lat' in d['query'] and 'lng' in d['query']:
+                d['query_geo'] = {
+                    'lat': float(d['query']['lat'][0]),
+                    'lon': float(d['query']['lng'][0])
+                }
 
         for i in [
                 'http_x_forwarded_for', 'upstream_addr', 'upstream_status',
@@ -174,12 +183,6 @@ class Nginx2ES(object):
             ]
 
         d['request_time'] = float(d['request_time'])
-
-        if 'lat' in d['query'] and 'lng' in d['query']:
-            d['query_geo'] = {
-                'lat': float(d['query']['lat'][0]),
-                'lon': float(d['query']['lng'][0])
-            }
 
         if geoip is not None:
             g = geoip.record_by_name(d['remote_addr'])
