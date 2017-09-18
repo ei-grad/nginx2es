@@ -19,7 +19,9 @@ from urllib.parse import splitquery, parse_qs
 import json
 import logging
 import re
+import signal
 import socket
+import subprocess
 
 
 from elasticsearch import Elasticsearch
@@ -211,17 +213,25 @@ class Nginx2ES(object):
             if not success:
                 logging.error(response)
 
+def watch_tail(filename):
+    p = subprocess.Popen(['tail', '-F', filename], stdout=subprocess.PIPE,
+                         encoding='utf-8')
+    signal.signal(signal.SIGINT, lambda *_: p.kill())
+    signal.signal(signal.SIGTERM, lambda *_: p.kill())
+    return p.stdout
+
 
 @click.command()
-@click.argument('input_file', type=click.File(), default='-')
+@click.argument('filename', default='/var/log/nginx/access.log')
+@click.option('--one-shot', is_flag=True)
 @click.option('--hostname', default=socket.gethostname())
 @click.option('--index', default='nginx-%Y.%m.%d')
 @click.option('--elastic', default=['localhost:9200'])
 @click.option('--force-create-template', is_flag=True)
 @click.option('--template-name', default='nginx')
 @click.option('--template')
-def main(input_file, hostname, index, elastic, force_create_template, template,
-         template_name):
+def main(filename, one_shot, hostname, index, elastic, force_create_template,
+         template, template_name):
     es = Elasticsearch(elastic)
     nginx2es = Nginx2ES(hostname, es, index)
     if force_create_template or not es.indices.exists_template(template_name):
@@ -230,7 +240,10 @@ def main(input_file, hostname, index, elastic, force_create_template, template,
         else:
             template = json.load(open(template))
         es.indices.put_template(template_name, DEFAULT_TEMPLATE)
-    nginx2es.run(input_file)
+    if one_shot:
+        run(click.open_file(filename))
+    else:
+        run(watch_tail(filename))
 
 
 if __name__ == "__main__":
