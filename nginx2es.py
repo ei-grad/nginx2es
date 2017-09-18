@@ -21,15 +21,18 @@ import logging
 import re
 import socket
 
-import GeoIP
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import streaming_bulk
 
 import click
 
-geoip = GeoIP.open("/usr/share/GeoIP/GeoIPCity.dat",
-                   GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE)
+try:
+    import GeoIP
+    geoip = GeoIP.open("/usr/share/GeoIP/GeoIPCity.dat",
+                       GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE)
+except ImportError:
+    geoip = None
 
 main_ext = re.compile(
     '(?P<remote_addr>[^ ]+) (?P<http_host>[^ ]+) (?P<remote_user>[^ ]+) '
@@ -177,14 +180,15 @@ class Nginx2ES(object):
                 'lon': float(d['query']['lng'][0])
             }
 
-        g = geoip.record_by_name(d['remote_addr'])
-        if g is not None:
-            d['geoip'] = {
-                'lat': g['latitude'],
-                'lon': g['longitude'],
-            }
-            d['city'] = g['city']
-            d['region_name'] = g['region_name']
+        if geoip is not None:
+            g = geoip.record_by_name(d['remote_addr'])
+            if g is not None:
+                d['geoip'] = {
+                    'lat': g['latitude'],
+                    'lon': g['longitude'],
+                }
+                d['city'] = g['city']
+                d['region_name'] = g['region_name']
 
         remainder = d.pop('remainder')
         if self.parse_remainder is not None and remainder:
