@@ -23,8 +23,7 @@ import signal
 import socket
 import subprocess
 
-
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, JSONSerializer
 from elasticsearch.helpers import streaming_bulk
 
 import click
@@ -213,6 +212,12 @@ class Nginx2ES(object):
             if not success:
                 logging.error(response)
 
+    def test(self, file):
+        s = JSONSerializer()
+        for i in self.gen(file):
+            print(s.dumps(i))
+
+
 def watch_tail(filename):
     p = subprocess.Popen(['tail', '-F', filename], stdout=subprocess.PIPE,
                          encoding='utf-8')
@@ -230,16 +235,25 @@ def watch_tail(filename):
 @click.option('--force-create-template', is_flag=True)
 @click.option('--template-name', default='nginx')
 @click.option('--template')
+@click.option('--test', is_flag=True)
 def main(filename, one_shot, hostname, index, elastic, force_create_template,
-         template, template_name):
+         template, template_name, test):
+
     es = Elasticsearch(elastic)
+
     nginx2es = Nginx2ES(hostname, es, index)
-    if force_create_template or not es.indices.exists_template(template_name):
-        if template is None:
-            template = DEFAULT_TEMPLATE
-        else:
-            template = json.load(open(template))
-        es.indices.put_template(template_name, DEFAULT_TEMPLATE)
+
+    if test:
+        run = nginx2es.test
+    else:
+        if force_create_template or not es.indices.exists_template(template_name):
+            if template is None:
+                template = DEFAULT_TEMPLATE
+            else:
+                template = json.load(open(template))
+            es.indices.put_template(template_name, DEFAULT_TEMPLATE)
+        run = nginx2es.run
+
     if one_shot:
         run(click.open_file(filename))
     else:
