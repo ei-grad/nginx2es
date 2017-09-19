@@ -1,5 +1,5 @@
-Parse nginx access.log and put parsed lines to Elasticsearch
-============================================================
+Put parsed Nginx access.log to Elasticsearch
+============================================
 
 Nginx access.log have to be formatted with this format:
 
