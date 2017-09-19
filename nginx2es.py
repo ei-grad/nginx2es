@@ -152,10 +152,10 @@ class Nginx2ES(object):
             del d['request_qs']
         else:
             d['query'] = parse_qs(d['request_qs'])
-            if 'lat' in d['query'] and 'lng' in d['query']:
+            if 'lat' in d['query'] and ('lng' in d['query'] or 'lon' in d['query']):
                 d['query_geo'] = {
                     'lat': float(d['query']['lat'][0]),
-                    'lon': float(d['query']['lng'][0])
+                    'lon': float(d['query']['lng' if 'lng' in d['query'] else 'lon'][0]),
                 }
 
         for i in [
