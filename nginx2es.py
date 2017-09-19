@@ -21,7 +21,7 @@ import logging
 import re
 import signal
 import socket
-import subprocess
+from subprocess import Popen, PIPE
 import sys
 
 from elasticsearch import Elasticsearch, JSONSerializer
@@ -56,8 +56,7 @@ DEFAULT_TEMPLATE = {
             "_all": {
                 "enabled": False
             },
-            "date_detection":
-            False,
+            "date_detection": False,
             "dynamic_templates": [{
                 "string_fields": {
                     "match": "*",
@@ -152,10 +151,11 @@ class Nginx2ES(object):
             del d['request_qs']
         else:
             d['query'] = parse_qs(d['request_qs'])
-            if 'lat' in d['query'] and ('lng' in d['query'] or 'lon' in d['query']):
+            lon_alias = 'lng' if 'lng' in d['query'] else 'lon'
+            if 'lat' in d['query'] and lon_alias in d['query']:
                 d['query_geo'] = {
                     'lat': float(d['query']['lat'][0]),
-                    'lon': float(d['query']['lng' if 'lng' in d['query'] else 'lon'][0]),
+                    'lon': float(d['query'][lon_alias][0]),
                 }
 
         for i in [
@@ -217,31 +217,48 @@ class Nginx2ES(object):
 
 
 def watch_tail(filename):
-    p = subprocess.Popen(['tail', '-F', filename], stdout=subprocess.PIPE,
-                         encoding='utf-8')
+    p = Popen(['tail', '-F', filename], stdout=PIPE, encoding='utf-8')
     signal.signal(signal.SIGINT, lambda *_: p.kill())
     signal.signal(signal.SIGTERM, lambda *_: p.kill())
     return p.stdout
 
 
+def geoip_error(msg):
+    sys.stderr.write("can't load geoip database: %s\n" % msg)
+    sys.exit(1)
+
+
 def load_geoip(geoip):
+
     explicit = False
     for i in sys.argv:
         if i == '--geoip' or i.startswith('--geoip='):
             explicit = True
+
     try:
         import GeoIP
         try:
-            return GeoIP.open(geoip, GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE)
+            # Description from https://github.com/maxmind/geoip-api-c:
+            #
+            # * GEOIP_INDEX_CACHE - Cache only the the most frequently accessed
+            # index portion of the database, resulting in faster lookups than
+            # GEOIP_STANDARD, but less memory usage than GEOIP_MEMORY_CACHE.
+            # This is useful for larger databases such as GeoIP Legacy
+            # Organization and GeoIP Legacy City. Note: for GeoIP Legacy
+            # Country, Region and Netspeed databases, GEOIP_INDEX_CACHE is
+            # equivalent to GEOIP_MEMORY_CACHE.
+            #
+            # * GEOIP_CHECK_CACHE - Check for updated database. If database has
+            # been updated, reload file handle and/or memory cache.
+            flags = GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE
+            return GeoIP.open(geoip, flags)
         except GeoIP.error as e:
             # if geoip was specified explicitly then the program should exit
             if explicit:
-                sys.stderr.write("can't load geoip database: %s\n" % e)
-                sys.exit(1)
+                geoip_error(e)
     except ImportError:
         if explicit:
-            sys.stderr.write("can't load geoip database: geoip module is not installed\n")
-            sys.exit(1)
+            geoip_error("geoip module is not installed")
     return None
 
 
