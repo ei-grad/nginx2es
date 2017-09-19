@@ -262,17 +262,46 @@ def load_geoip(geoip):
     return None
 
 
+def check_template(es, name, template, force):
+    if force or not es.indices.exists_template(name):
+        if template is None:
+            template = DEFAULT_TEMPLATE
+        else:
+            template = json.load(open(template))
+        es.indices.put_template(name, DEFAULT_TEMPLATE)
+
+
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
-@click.option('--one-shot', is_flag=True)
-@click.option('--hostname', default=socket.gethostname())
-@click.option('--index', default='nginx-%Y.%m.%d')
-@click.option('--elastic', default=['localhost:9200'])
-@click.option('--force-create-template', is_flag=True)
-@click.option('--template-name', default='nginx')
-@click.option('--template')
-@click.option('--geoip', default="/usr/share/GeoIP/GeoIPCity.dat")
-@click.option('--test', is_flag=True)
+@click.option(
+    '--one-shot',
+    is_flag=True,
+    help="Parse current access.log contents, no `tail -f`.")
+@click.option(
+    '--hostname',
+    default=socket.gethostname(),
+    help="Override hostname to add to documents.")
+@click.option(
+    '--index',
+    default='nginx-%Y.%m.%d',
+    help="Index name template (use strftime(3) format).")
+@click.option(
+    '--elastic', default=['localhost:9200'], help="Elasticsearch address.")
+@click.option(
+    '--force-create-template',
+    is_flag=True,
+    help="Force create index template.")
+@click.option(
+    '--template-name',
+    default='nginx',
+    help="Template name to use for index template.")
+@click.option('--template', help="Index template filename (json).")
+@click.option(
+    '--geoip',
+    default="/usr/share/GeoIP/GeoIPCity.dat",
+    help="GeoIP database file path.")
+@click.option(
+    '--test', is_flag=True, help="Output to stdout instead of elasticsearch.")
 def main(filename, one_shot, hostname, index, elastic, force_create_template,
          template, template_name, test, geoip):
 
@@ -285,17 +314,12 @@ def main(filename, one_shot, hostname, index, elastic, force_create_template,
     if test:
         run = nginx2es.test
     else:
-        if force_create_template or not es.indices.exists_template(template_name):
-            if template is None:
-                template = DEFAULT_TEMPLATE
-            else:
-                template = json.load(open(template))
-            es.indices.put_template(template_name, DEFAULT_TEMPLATE)
         run = nginx2es.run
 
     if one_shot:
         run(click.open_file(filename))
     else:
+        check_template(es, template_name, template, force_create_template)
         run(watch_tail(filename))
 
 
