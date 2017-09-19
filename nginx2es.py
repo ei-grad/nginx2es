@@ -22,18 +22,12 @@ import re
 import signal
 import socket
 import subprocess
+import sys
 
 from elasticsearch import Elasticsearch, JSONSerializer
 from elasticsearch.helpers import streaming_bulk
 
 import click
-
-try:
-    import GeoIP
-    geoip = GeoIP.open("/usr/share/GeoIP/GeoIPCity.dat",
-                       GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE)
-except ImportError:
-    geoip = None
 
 main_ext = re.compile(
     '(?P<remote_addr>[^ ]+) (?P<http_host>[^ ]+) (?P<remote_user>[^ ]+) '
@@ -131,12 +125,13 @@ DEFAULT_TEMPLATE = {
 
 
 class Nginx2ES(object):
-    def __init__(self, hostname, es, index, parse_remainder=None):
+    def __init__(self, hostname, es, index, parse_remainder=None, geoip=None):
         self.hostname = hostname
         self.es = es
         self.index = index
         self.parse_remainder = parse_remainder
         self.ts_format = '%d/%b/%Y:%H:%M:%S %z'
+        self.geoip = geoip
 
     def parse_line(self, line):
 
@@ -184,8 +179,8 @@ class Nginx2ES(object):
 
         d['request_time'] = float(d['request_time'])
 
-        if geoip is not None:
-            g = geoip.record_by_name(d['remote_addr'])
+        if self.geoip is not None:
+            g = self.geoip.record_by_name(d['remote_addr'])
             if g is not None:
                 d['geoip'] = {
                     'lat': g['latitude'],
@@ -229,6 +224,27 @@ def watch_tail(filename):
     return p.stdout
 
 
+def load_geoip(geoip):
+    explicit = False
+    for i in sys.argv:
+        if i == '--geoip' or i.startswith('--geoip='):
+            explicit = True
+    try:
+        import GeoIP
+        try:
+            return GeoIP.open(geoip, GeoIP.GEOIP_INDEX_CACHE | GeoIP.GEOIP_CHECK_CACHE)
+        except GeoIP.error as e:
+            # if geoip was specified explicitly then the program should exit
+            if explicit:
+                sys.stderr.write("can't load geoip database: %s\n" % e)
+                sys.exit(1)
+    except ImportError:
+        if explicit:
+            sys.stderr.write("can't load geoip database: geoip module is not installed\n")
+            sys.exit(1)
+    return None
+
+
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
 @click.option('--one-shot', is_flag=True)
@@ -238,13 +254,16 @@ def watch_tail(filename):
 @click.option('--force-create-template', is_flag=True)
 @click.option('--template-name', default='nginx')
 @click.option('--template')
+@click.option('--geoip', default="/usr/share/GeoIP/GeoIPCity.dat")
 @click.option('--test', is_flag=True)
 def main(filename, one_shot, hostname, index, elastic, force_create_template,
-         template, template_name, test):
+         template, template_name, test, geoip):
 
     es = Elasticsearch(elastic)
 
-    nginx2es = Nginx2ES(hostname, es, index)
+    geoip = load_geoip(geoip)
+
+    nginx2es = Nginx2ES(hostname, es, index, geoip=geoip)
 
     if test:
         run = nginx2es.test
