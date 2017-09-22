@@ -84,7 +84,7 @@ class AccessLogParser(object):
             if d[i] == '-':
                 del d[i]
             else:
-                d[i] = d[i].replace(', ', ' : ').split(' : ')
+                d[i] = [j for j in d[i].replace(', ', ' : ').split(' : ') if j]
 
         if 'upstream_response_time' in d:
             d['upstream_response_time'] = [
