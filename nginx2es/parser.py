@@ -80,6 +80,17 @@ class AccessLogParser(object):
                 except ValueError:
                     pass
 
+        d['status'] = int(d['status'])
+        d['body_bytes_sent'] = int(d['body_bytes_sent'])
+
+        if d['http_user_agent'] == '-':
+            del d['http_user_agent']
+
+        if d['http_referer'] == '-':
+            del d['http_referer']
+
+        d['request_time'] = float(d['request_time'])
+
         for i in [
                 'http_x_forwarded_for', 'upstream_addr', 'upstream_status',
                 'upstream_response_time', 'upstream_response_length'
@@ -98,8 +109,6 @@ class AccessLogParser(object):
             d['upstream_response_length'] = [
                 int(i) for i in d['upstream_response_length'] if i != '-'
             ]
-
-        d['request_time'] = float(d['request_time'])
 
         if self.geoip is not None:
             g = self.geoip.record_by_name(d['remote_addr'])
