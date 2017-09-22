@@ -13,8 +13,8 @@ log_format main_ext
     'cs=$upstream_cache_status';
 """
 
-from datetime import datetime
 from six.moves.urllib.parse import splitquery, parse_qs
+import dateutil.parser
 import logging
 
 import re
@@ -37,11 +37,17 @@ main_ext = re.compile(
     '(?P<remainder>.*)')
 
 
+def timestamp_parser(ts):
+    # python2.x strptime doesn't support %z :-(
+    return dateutil.parser.parse(ts.replace(':', ' ', 1))
+
+
 class AccessLogParser(object):
-    def __init__(self, hostname, parse_remainder=None, geoip=None):
+    def __init__(self, hostname, parse_remainder=None, geoip=None,
+                 timestamp_parser=timestamp_parser):
         self.hostname = hostname
         self.parse_remainder = parse_remainder
-        self.ts_format = '%d/%b/%Y:%H:%M:%S %z'
+        self.timestamp_parser = timestamp_parser
         self.geoip = geoip
 
     def __call__(self, line):
@@ -54,7 +60,7 @@ class AccessLogParser(object):
 
         d = m.groupdict()
 
-        d['@timestamp'] = datetime.strptime(d['time_local'], self.ts_format)
+        d['@timestamp'] = self.timestamp_parser(d['time_local'])
         if self.hostname is not None:
             d['@host'] = self.hostname
 
