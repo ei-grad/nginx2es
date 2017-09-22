@@ -102,8 +102,7 @@ class AccessLogParser(object):
                 d['city'] = g['city']
                 d['region_name'] = g['region_name']
 
-        remainder = d.pop('remainder')
-        if self.parse_remainder is not None and remainder:
-            self.parse_remainder(d, remainder)
+        if self.parse_remainder is not None:
+            self.parse_remainder(d, d.pop('remainder'))
 
         return d
