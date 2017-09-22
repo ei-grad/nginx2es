@@ -72,10 +72,13 @@ class AccessLogParser(object):
             d['query'] = parse_qs(d['request_qs'])
             lon_alias = 'lng' if 'lng' in d['query'] else 'lon'
             if 'lat' in d['query'] and lon_alias in d['query']:
-                d['query_geo'] = {
-                    'lat': float(d['query']['lat'][0]),
-                    'lon': float(d['query'][lon_alias][0]),
-                }
+                try:
+                    d['query_geo'] = {
+                        'lat': float(d['query']['lat'][0]),
+                        'lon': float(d['query'][lon_alias][0]),
+                    }
+                except ValueError:
+                    pass
 
         for i in [
                 'http_x_forwarded_for', 'upstream_addr', 'upstream_status',
