@@ -14,7 +14,7 @@ log_format main_ext
 """
 
 from datetime import datetime
-from urllib.parse import splitquery, parse_qs
+from six.moves.urllib.parse import splitquery, parse_qs
 import logging
 
 import re
