@@ -64,6 +64,9 @@ class AccessLogParser(object):
         if self.hostname is not None:
             d['@host'] = self.hostname
 
+        if d['remote_user'] == '-':
+            del d['remote_user']
+
         d['request_path'], d['request_qs'] = splitquery(d['request'])
 
         if d['request_qs'] is None:
