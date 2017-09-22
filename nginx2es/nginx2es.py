@@ -13,7 +13,7 @@ class Nginx2ES(object):
 
     def gen(self, file):
         for line in file:
-            doc = self.parser.parse_line(line)
+            doc = self.parser(line)
             if doc is not None:
                 yield {
                     '_index': doc['@timestamp'].strftime(self.index),

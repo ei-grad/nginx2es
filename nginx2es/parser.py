@@ -44,7 +44,7 @@ class AccessLogParser(object):
         self.ts_format = '%d/%b/%Y:%H:%M:%S %z'
         self.geoip = geoip
 
-    def parse_line(self, line):
+    def __call__(self, line):
 
         m = main_ext.match(line.strip())
 
@@ -55,7 +55,8 @@ class AccessLogParser(object):
         d = m.groupdict()
 
         d['@timestamp'] = datetime.strptime(d['time_local'], self.ts_format)
-        d['@host'] = self.hostname
+        if self.hostname is not None:
+            d['@host'] = self.hostname
 
         d['request_path'], d['request_qs'] = splitquery(d['request'])
 
