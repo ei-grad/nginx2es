@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+from subprocess import Popen, PIPE
+import codecs
 import json
 import logging
 import signal
 import socket
-from subprocess import Popen, PIPE
 import sys
 
 from elasticsearch import Elasticsearch
@@ -93,10 +94,10 @@ DEFAULT_TEMPLATE = {
 
 
 def watch_tail(filename):
-    p = Popen(['tail', '-F', '-n', '+0', filename], stdout=PIPE, encoding='utf-8')
+    p = Popen(['tail', '-F', '-n', '+0', filename], stdout=PIPE)
     signal.signal(signal.SIGINT, lambda *_: p.kill())
     signal.signal(signal.SIGTERM, lambda *_: p.kill())
-    return p.stdout
+    return codecs.getreader('utf-8')(p.stdout)
 
 
 def geoip_error(msg):
