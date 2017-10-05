@@ -178,7 +178,7 @@ def check_template(es, name, template, force):
     '--geoip',
     default="/usr/share/GeoIP/GeoIPCity.dat",
     help="GeoIP database file path.")
-@click.option('--log-level', default="DEBUG", help="log level")
+@click.option('--log-level', default="INFO", help="log level")
 def main(filename, one_shot, hostname, index, elastic, force_create_template,
          template, template_name, test, geoip, log_level):
 
