@@ -19,6 +19,8 @@ Install
 
 Install with pip:
 
+.. code-block:: bash
+
     pip install nginx2es
 
 Features
