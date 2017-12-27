@@ -34,7 +34,7 @@ main_ext = re.compile(
     'ut="(?P<upstream_response_time>[^"]+)" '
     'ul="(?P<upstream_response_length>[^"]+)" '
     'cs=(?P<upstream_cache_status>[A-Z-]+)'
-    '(?P<remainder>.*)')
+    '( (?P<remainder>.*))?')
 
 
 def timestamp_parser(ts):
