@@ -14,8 +14,28 @@ Nginx access.log have to be formatted with this format:
         'ul="$upstream_response_length" '
         'cs=$upstream_cache_status';
 
-GeoIP
------
+Install
+-------
 
-Nginx2es could optionally use the GeoIP database if `geoip` module is installed
-and the GeoIPCity.dat database file is available.
+Install with pip:
+
+    pip install nginx2es
+
+Features
+--------
+
+- Stable log record ID (hostname + file inode number + timestamp + file
+  position). It makes possible to import log file more than once (adding some
+  additional processing to nginx2es, or dropping a daily index containing only
+  a half of records, etc) without creating a duplicate records.
+
+- Parse query params and split request uri path components to separate fields
+  for complex log filtering / aggregations.
+
+- Optional use of the GeoIP database (requires the `geoip` module and the
+  GeoIPCity.dat database file) - adds `city` and `region_name` fields.
+
+- Correctly parse log records containing information about multiple upstream
+  responses.
+
+- The `tail -F`-like mode implemented with inotify.
