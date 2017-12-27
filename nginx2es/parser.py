@@ -83,6 +83,10 @@ class AccessLogParser(object):
                 except ValueError:
                     pass
 
+        for n, i in enumerate(d['request_path'].split('/')):
+            if i:  # skip the empty 0-th and last components
+                d['request_path_%d' % n] = i
+
         d['status'] = int(d['status'])
         d['body_bytes_sent'] = int(d['body_bytes_sent'])
 
