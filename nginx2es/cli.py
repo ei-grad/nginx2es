@@ -128,50 +128,47 @@ def yield_from_stream(f):
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
 @click.option(
-    '--elastic', default=['localhost:9200'], help="Elasticsearch address.")
+    '--elastic', default=['localhost:9200'],
+    help="elasticsearch cluster address")
 @click.option(
     '--force-create-template',
     is_flag=True,
-    help="Force create index template.")
-@click.option(
-    '--from-start',
-    is_flag=True,
-    help="Read file from start (default: read only new lines).")
+    help="force create index template")
 @click.option(
     '--geoip',
     default="/usr/share/GeoIP/GeoIPCity.dat",
-    help="GeoIP database file path.")
+    help="GeoIP database file path")
 @click.option(
     '--hostname',
     default=socket.gethostname(),
-    help="Override hostname to add to documents.")
+    help="override hostname to add to documents")
 @click.option(
     '--index',
     default='nginx-%Y.%m.%d',
-    help="Index name template (use strftime(3) format).")
-@click.option('--log-level', default="INFO", help="log level")
+    help="index name strftime pattern")
 @click.option(
-    '--one-shot',
-    is_flag=True,
-    help="Parse current access.log contents, no `tail -f`.")
+    '--mode',
+    default='tail',
+    type=click.Choice(['tail', 'from-start', 'one-shot']),
+    help="records read mode")
 @click.option('--remainder-parser', default="", help="remainder parser")
-@click.option('--template', help="Index template filename (json).")
+@click.option('--template', help="index template filename (json)")
 @click.option(
     '--template-name',
     default='nginx',
-    help="Template name to use for index template.")
+    help="template name to use for index template")
 @click.option(
-    '--test', is_flag=True, help="Output to stdout instead of elasticsearch.")
+    '--test', is_flag=True, help="output to stdout instead of elasticsearch")
+@click.option('--log-level', default="INFO", help="log level")
 def main(
         filename,
         elastic,
         force_create_template,
-        from_start,
         geoip,
         hostname,
         index,
         log_level,
-        one_shot,
+        mode,
         remainder_parser,
         template,
         template_name,
@@ -208,11 +205,13 @@ def main(
 
     f = click.open_file(filename)
     if not f.seekable():
+        if '--mode' in sys.argv:
+            logging.warning("using --mode argument while reading from stream is incorrect")
         run(yield_from_stream(f))
-    elif one_shot:
+    elif mode == 'one-shot':
         run(yield_until_eof(f))
     else:
-        run(Watcher(filename))
+        run(Watcher(filename, mode == 'from-start'))
 
 
 if __name__ == "__main__":

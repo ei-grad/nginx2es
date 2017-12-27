@@ -20,10 +20,11 @@ def yield_until_eof(f):
 
 class Watcher(object):
 
-    def __init__(self, filename, last_inode=None, last_pos=None):
+    def __init__(self, filename, from_start=False):
         self.filename = filename
-        self.last_inode = last_inode
-        self.last_pos = last_pos
+        self.from_start = from_start
+        self.last_inode = None
+        self.last_pos = None
 
     def __iter__(self):
         while True:
@@ -36,17 +37,18 @@ class Watcher(object):
 
         f = open(self.filename)
 
-        inode = os.stat(f.fileno()).st_ino
-        if inode == self.last_inode:
-            f.seek(self.last_pos)
+        if self.last_inode is not None:
+            if os.stat(f.fileno()).st_ino == self.last_inode:
+                f.seek(self.last_pos)
         else:
-            self.last_inode = inode
-
-        for i in yield_until_eof(f):
-            yield i
+            self.last_inode = os.stat(f.fileno()).st_ino
+            if not self.from_start:
+                f.seek(0, 2)
 
         with INotify() as inotify:
             inotify.add_watch(self.filename, flags.MODIFY | flags.CLOSE_WRITE)
+            for i in yield_until_eof(f):
+                yield i
             for i in self._watch_until_closed(f, inotify):
                 yield i
 
