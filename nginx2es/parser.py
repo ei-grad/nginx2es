@@ -62,7 +62,7 @@ class AccessLogParser(object):
 
         d['@timestamp'] = self.timestamp_parser(d['time_local'])
         if self.hostname is not None:
-            d['@host'] = self.hostname
+            d['@hostname'] = self.hostname
 
         if d['remote_user'] == '-':
             del d['remote_user']
