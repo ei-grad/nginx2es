@@ -128,6 +128,10 @@ def yield_from_stream(f):
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
 @click.option(
+    '--chunk-size',
+    default=500,
+    help='chunk size for bulk requests')
+@click.option(
     '--elastic', default=['localhost:9200'],
     help="elasticsearch cluster address")
 @click.option(
@@ -147,6 +151,14 @@ def yield_from_stream(f):
     default='nginx-%Y.%m.%d',
     help="index name strftime pattern")
 @click.option(
+    '--max-delay', default=10.,
+    help="maximum time to wait before flush if count of records in buffer is "
+         "less than chunk-size")
+@click.option(
+    '--max-retries', default=3,
+    help="maximum number of times a document will be retried when 429 is "
+         "received, set to 0 for no retries on 429")
+@click.option(
     '--mode',
     default='tail',
     type=click.Choice(['tail', 'from-start', 'one-shot']),
@@ -162,11 +174,14 @@ def yield_from_stream(f):
 @click.option('--log-level', default="INFO", help="log level")
 def main(
         filename,
+        chunk_size,
         elastic,
         force_create_template,
         geoip,
         hostname,
         index,
+        max_delay,
+        max_retries,
         log_level,
         mode,
         remainder_parser,
@@ -195,7 +210,8 @@ def main(
     access_log_parser = AccessLogParser(hostname, geoip=geoip,
                                         remainder_parser=remainder_parser)
 
-    nginx2es = Nginx2ES(es, access_log_parser, index)
+    nginx2es = Nginx2ES(es, access_log_parser, index, chunk_size, max_retries,
+                        max_delay)
 
     if stdout:
         run = nginx2es.stdout
