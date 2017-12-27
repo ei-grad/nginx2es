@@ -40,4 +40,4 @@ Features
 - Correctly parse log records containing information about multiple upstream
   responses.
 
-- The `tail -F`-like mode implemented with inotify.
+- The :code:`tail -F`-like mode implemented with inotify.
