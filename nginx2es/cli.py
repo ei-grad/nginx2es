@@ -152,13 +152,13 @@ def yield_from_stream(f):
     type=click.Choice(['tail', 'from-start', 'one-shot']),
     help="records read mode")
 @click.option('--remainder-parser', default="", help="remainder parser")
-@click.option('--template', help="index template filename (json)")
+@click.option('--template', help="index template filename")
 @click.option(
     '--template-name',
     default='nginx',
     help="template name to use for index template")
 @click.option(
-    '--test', is_flag=True, help="output to stdout instead of elasticsearch")
+    '--stdout', is_flag=True, help="output to stdout instead of elasticsearch")
 @click.option('--log-level', default="INFO", help="log level")
 def main(
         filename,
@@ -172,7 +172,7 @@ def main(
         remainder_parser,
         template,
         template_name,
-        test,
+        stdout,
 ):
 
     logging.basicConfig(level=log_level.upper())
@@ -197,8 +197,8 @@ def main(
 
     nginx2es = Nginx2ES(es, access_log_parser, index)
 
-    if test:
-        run = nginx2es.test
+    if stdout:
+        run = nginx2es.stdout
     else:
         check_template(es, template_name, template, force_create_template)
         run = nginx2es.run

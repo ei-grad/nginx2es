@@ -28,7 +28,7 @@ class Nginx2ES(object):
             if not success:
                 logging.error(response)
 
-    def test(self, file):
+    def stdout(self, file):
         s = JSONSerializer()
         for i in self.gen(file):
             print(s.dumps(i))
