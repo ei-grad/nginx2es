@@ -1,19 +1,18 @@
 #!/usr/bin/env python
 
-from subprocess import Popen, PIPE
-import codecs
 import json
 import logging
-import signal
 import socket
 import sys
 
 from elasticsearch import Elasticsearch
 
+import entrypoints
 import click
 
 from .parser import AccessLogParser
 from .nginx2es import Nginx2ES
+from .watcher import yield_until_eof, Watcher
 
 
 DEFAULT_TEMPLATE = {
@@ -71,13 +70,6 @@ DEFAULT_TEMPLATE = {
 }
 
 
-def watch_tail(filename):
-    p = Popen(['tail', '-F', '-n', '+0', filename], stdout=PIPE)
-    signal.signal(signal.SIGINT, lambda *_: p.kill())
-    signal.signal(signal.SIGTERM, lambda *_: p.kill())
-    return codecs.getreader('utf-8')(p.stdout)
-
-
 def geoip_error(msg):
     sys.stderr.write("can't load geoip database: %s\n" % msg)
     sys.exit(1)
@@ -126,12 +118,29 @@ def check_template(es, name, template, force):
         es.indices.put_template(name, DEFAULT_TEMPLATE)
 
 
+def yield_from_stream(f):
+    offset = 0
+    for i in f:
+        yield None, offset, i
+        offset += len(i)
+
+
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
 @click.option(
-    '--one-shot',
+    '--elastic', default=['localhost:9200'], help="Elasticsearch address.")
+@click.option(
+    '--force-create-template',
     is_flag=True,
-    help="Parse current access.log contents, no `tail -f`.")
+    help="Force create index template.")
+@click.option(
+    '--from-start',
+    is_flag=True,
+    help="Read file from start (default: read only new lines).")
+@click.option(
+    '--geoip',
+    default="/usr/share/GeoIP/GeoIPCity.dat",
+    help="GeoIP database file path.")
 @click.option(
     '--hostname',
     default=socket.gethostname(),
@@ -140,34 +149,56 @@ def check_template(es, name, template, force):
     '--index',
     default='nginx-%Y.%m.%d',
     help="Index name template (use strftime(3) format).")
+@click.option('--log-level', default="INFO", help="log level")
 @click.option(
-    '--elastic', default=['localhost:9200'], help="Elasticsearch address.")
-@click.option(
-    '--force-create-template',
+    '--one-shot',
     is_flag=True,
-    help="Force create index template.")
+    help="Parse current access.log contents, no `tail -f`.")
+@click.option('--remainder-parser', default="", help="remainder parser")
+@click.option('--template', help="Index template filename (json).")
 @click.option(
     '--template-name',
     default='nginx',
     help="Template name to use for index template.")
-@click.option('--template', help="Index template filename (json).")
 @click.option(
     '--test', is_flag=True, help="Output to stdout instead of elasticsearch.")
-@click.option(
-    '--geoip',
-    default="/usr/share/GeoIP/GeoIPCity.dat",
-    help="GeoIP database file path.")
-@click.option('--log-level', default="INFO", help="log level")
-def main(filename, one_shot, hostname, index, elastic, force_create_template,
-         template, template_name, test, geoip, log_level):
+def main(
+        filename,
+        elastic,
+        force_create_template,
+        from_start,
+        geoip,
+        hostname,
+        index,
+        log_level,
+        one_shot,
+        remainder_parser,
+        template,
+        template_name,
+        test,
+):
 
-    logging.basicConfig(level=log_level)
+    logging.basicConfig(level=log_level.upper())
 
     es = Elasticsearch(elastic)
 
     geoip = load_geoip(geoip)
 
-    nginx2es = Nginx2ES(es, AccessLogParser(hostname, geoip=geoip), index)
+    if remainder_parser:
+        try:
+            remainder_parser = entrypoints.get_single(
+                "nginx2es.remainder_parser", remainder_parser)
+        except entrypoints.NoSuchEntryPoint:
+            raise click.BadParameter(
+                "%s not found in \"nginx2es.remainder_parser\" "
+                "entrypoints" % remainder_parser
+            )
+        remainder_parser = remainder_parser.load()
+
+    access_log_parser = AccessLogParser(hostname, geoip=geoip,
+                                        remainder_parser=remainder_parser)
+
+    nginx2es = Nginx2ES(es, access_log_parser, index)
 
     if test:
         run = nginx2es.test
@@ -175,10 +206,13 @@ def main(filename, one_shot, hostname, index, elastic, force_create_template,
         check_template(es, template_name, template, force_create_template)
         run = nginx2es.run
 
-    if one_shot:
-        run(click.open_file(filename))
+    f = click.open_file(filename)
+    if not f.seekable():
+        run(yield_from_stream(f))
+    elif one_shot:
+        run(yield_until_eof(f))
     else:
-        run(watch_tail(filename))
+        run(Watcher(filename))
 
 
 if __name__ == "__main__":

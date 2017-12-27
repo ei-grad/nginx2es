@@ -12,10 +12,12 @@ class Nginx2ES(object):
         self.index = index
 
     def gen(self, file):
-        for line in file:
+        for line_num, (inode, pos, line) in enumerate(file):
             doc = self.parser(line)
             if doc is not None:
                 yield {
+                    '_id': '%s-%s-%s-%s' % (doc['@hostname'], inode, pos,
+                                            doc['@timestamp'].strftime('%s')),
                     '_index': doc['@timestamp'].strftime(self.index),
                     '_type': 'nginx2es',
                     '_source': doc
