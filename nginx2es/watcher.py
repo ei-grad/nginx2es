@@ -44,6 +44,9 @@ class Watcher(object):
             # seek to last position if file is not changed
             if inode == self.last_inode:
                 f.seek(self.last_pos)
+                if f.tell() != self.last_pos:
+                    # file was copytruncated?
+                    f.seek(0, 0)
         # if it is the first watch pass
         else:
             # rewind to end of the file if not asked to start from begin
