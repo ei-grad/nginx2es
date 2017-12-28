@@ -36,26 +36,33 @@ class Watcher(object):
 
     def watch(self):
 
-        logging.debug("starting watch")
-
         f = open(self.filename)
+        inode = os.stat(f.fileno()).st_ino
 
+        # if this is not the first watch pass
         if self.last_inode is not None:
-            if os.stat(f.fileno()).st_ino == self.last_inode:
+            # seek to last position if file is not changed
+            if inode == self.last_inode:
                 f.seek(self.last_pos)
+        # if it is the first watch pass
         else:
-            self.last_inode = os.stat(f.fileno()).st_ino
+            # rewind to end of the file if not asked to start from begin
             if not self.from_start:
                 f.seek(0, 2)
 
         with INotify() as inotify:
+            logging.info("starting watch on %s (inode %d)", self.filename, inode)
             inotify.add_watch(self.filename, flags.MODIFY | flags.CLOSE_WRITE)
             for i in yield_until_eof(f):
                 yield i
             for i in self._watch_until_closed(f, inotify):
                 yield i
+            logging.info("finished watch on %s (inode %d)", self.filename, inode)
 
+        self.last_inode = inode
         self.last_pos = f.tell()
+
+        f.close()
 
     def _watch_until_closed(self, f, inotify):
         closed = False
