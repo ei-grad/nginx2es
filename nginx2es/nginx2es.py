@@ -39,11 +39,15 @@ class Nginx2ES(object):
 
         def filler():
             for i in self.gen(file):
-                while len(buffer) > self.chunk_size:
+                buffer_lock.acquire()
+                buffer.append(i)
+                if len(buffer) >= self.chunk_size:
                     filled.set()
+                    buffer_lock.release()
                     flushed.wait()
-                with buffer_lock:
-                    buffer.append(i)
+                    flushed.clear()
+                else:
+                    buffer_lock.release()
             eof.set()
             filled.set()
 
@@ -52,19 +56,32 @@ class Nginx2ES(object):
         filler_thread.start()
 
         def flusher():
+
             while not eof.is_set():
+
                 filled.wait(self.max_delay)
+                filled.clear()
+
+                to_flush = []
+
+                buffer_lock.acquire()
                 if buffer:
-                    with buffer_lock:
-                        to_flush = list(buffer)
-                        buffer.clear()
+                    to_flush = list(buffer)
+                    buffer.clear()
+                    buffer_lock.release()
+                    flushed.set()
+                else:
+                    buffer_lock.release()
+
+                if to_flush:
+                    logging.info('flushing %d records', len(to_flush))
                     for success, response in streaming_bulk(
                             self.es, to_flush,
+                            chunk_size=self.chunk_size,
                             max_retries=self.max_retries,
                             yield_ok=False,
                     ):
                         logging.error(response)
-                flushed.set()
 
         flusher_thread = threading.Thread(target=flusher)
         flusher_thread.daemon = True
