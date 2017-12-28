@@ -10,12 +10,15 @@ def yield_until_eof(f):
         pos = f.tell()
         if pos == stat.st_size:
             break
-        # exit if only a part of the line is written to file
         line = f.readline()
-        if line[-1] != '\n':
-            f.seek(pos)
-            break
-        yield stat.st_ino, pos, line
+        if line:
+            # only a part of the line is written to file
+            if line[-1] != '\n':
+                # restore previous position (before readline)
+                f.seek(pos)
+                # exit
+                break
+            yield stat.st_ino, pos, line
 
 
 class Watcher(object):
