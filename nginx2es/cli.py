@@ -170,6 +170,10 @@ def yield_from_stream(f):
     default='nginx',
     help="template name to use for index template")
 @click.option(
+    '--timeout',
+    default=30,
+    help="elasticsearch request timeout")
+@click.option(
     '--stdout', is_flag=True, help="output to stdout instead of elasticsearch")
 @click.option('--log-level', default="INFO", help="log level")
 def main(
@@ -182,17 +186,18 @@ def main(
         index,
         max_delay,
         max_retries,
-        log_level,
         mode,
         remainder_parser,
         template,
         template_name,
+        timeout,
         stdout,
+        log_level,
 ):
 
     logging.basicConfig(level=log_level.upper())
 
-    es = Elasticsearch(elastic)
+    es = Elasticsearch(elastic, timeout=timeout)
 
     geoip = load_geoip(geoip)
 
