@@ -75,10 +75,12 @@ class Nginx2ES(object):
 
                 if to_flush:
                     logging.info('flushing %d records', len(to_flush))
-                    for success, response in streaming_bulk(
+                    for _, response in streaming_bulk(
                             self.es, to_flush,
                             chunk_size=self.chunk_size,
                             max_retries=self.max_retries,
+                            raise_on_error=False,
+                            raise_on_exception=False,
                             yield_ok=False,
                     ):
                         logging.error(response)
