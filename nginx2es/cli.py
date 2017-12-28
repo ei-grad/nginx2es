@@ -206,6 +206,8 @@ def main(
                 "entrypoints" % remainder_parser
             )
         remainder_parser = remainder_parser.load()
+    else:
+        remainder_parser = None
 
     access_log_parser = AccessLogParser(hostname, geoip=geoip,
                                         remainder_parser=remainder_parser)
