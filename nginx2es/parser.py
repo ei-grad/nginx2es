@@ -43,10 +43,10 @@ def timestamp_parser(ts):
 
 
 class AccessLogParser(object):
-    def __init__(self, hostname, remainder_parser=None, geoip=None,
+    def __init__(self, hostname, extensions=None, geoip=None,
                  timestamp_parser=timestamp_parser):
         self.hostname = hostname
-        self.remainder_parser = remainder_parser
+        self.extensions = extensions
         self.timestamp_parser = timestamp_parser
         self.geoip = geoip
 
@@ -127,7 +127,7 @@ class AccessLogParser(object):
                 d['city'] = g['city']
                 d['region_name'] = g['region_name']
 
-        if self.remainder_parser is not None:
-            self.remainder_parser(d, d.pop('remainder'))
+        for ext in self.extensions:
+            ext(d)
 
         return d

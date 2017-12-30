@@ -125,6 +125,24 @@ def yield_from_stream(f):
         offset += len(i)
 
 
+def load_extensions(extensions):
+
+    ret = []
+
+    for ext_name in extensions:
+        try:
+            ext = entrypoints.get_single(
+                "nginx2es.ext", ext_name)
+        except entrypoints.NoSuchEntryPoint:
+            raise click.BadParameter(
+                "%s not found in \"nginx2es.ext\" "
+                "entrypoints" % ext_name
+            )
+        ret.append(ext.load())
+
+    return ret
+
+
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
 @click.option(
@@ -164,7 +182,9 @@ def yield_from_stream(f):
     default='tail',
     type=click.Choice(['tail', 'from-start', 'one-shot']),
     help="records read mode")
-@click.option('--remainder-parser', default="", help="remainder parser")
+@click.option(
+    '--ext', multiple=True,
+    help="add post-processing extension")
 @click.option('--template', help="index template filename")
 @click.option(
     '--template-name',
@@ -188,7 +208,7 @@ def main(
         max_delay,
         max_retries,
         mode,
-        remainder_parser,
+        ext,
         template,
         template_name,
         timeout,
@@ -198,25 +218,15 @@ def main(
 
     logging.basicConfig(level=log_level.upper())
 
+    logging.debug('elasticsearch: %s', elastic)
+
     es = Elasticsearch(elastic, timeout=timeout)
 
     geoip = load_geoip(geoip)
 
-    if remainder_parser:
-        try:
-            remainder_parser = entrypoints.get_single(
-                "nginx2es.remainder_parser", remainder_parser)
-        except entrypoints.NoSuchEntryPoint:
-            raise click.BadParameter(
-                "%s not found in \"nginx2es.remainder_parser\" "
-                "entrypoints" % remainder_parser
-            )
-        remainder_parser = remainder_parser.load()
-    else:
-        remainder_parser = None
-
-    access_log_parser = AccessLogParser(hostname, geoip=geoip,
-                                        remainder_parser=remainder_parser)
+    access_log_parser = AccessLogParser(
+        hostname, geoip=geoip, extensions=load_extensions(ext),
+    )
 
     nginx2es = Nginx2ES(es, access_log_parser, index, chunk_size, max_retries,
                         max_delay)
