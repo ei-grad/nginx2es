@@ -133,6 +133,7 @@ def yield_from_stream(f):
     help='chunk size for bulk requests')
 @click.option(
     '--elastic', default=['localhost:9200'],
+    multiple=True,
     help="elasticsearch cluster address")
 @click.option(
     '--force-create-template',
