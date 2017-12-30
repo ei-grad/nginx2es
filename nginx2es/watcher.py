@@ -1,3 +1,4 @@
+from time import sleep
 import logging
 import os
 
@@ -33,6 +34,7 @@ class Watcher(object):
         while True:
             for i in self.watch():
                 yield i
+            sleep(5)  # wait for file to be rotated
 
     def watch(self):
 
