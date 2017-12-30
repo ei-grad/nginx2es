@@ -34,8 +34,8 @@ Features
 - Parse query params and split request uri path components to separate fields
   for complex log filtering / aggregations.
 
-- Optional use of the GeoIP database (requires the `geoip` module and the
-  GeoIPCity.dat database file) - adds `city` and `region_name` fields.
+- Optional use of the GeoIP database (requires the :code:`geoip` module and the
+  GeoIPCity.dat database file) - adds :code:`city` and :code:`region_name` fields.
 
 - Correctly parse log records containing information about multiple upstream
   responses.
