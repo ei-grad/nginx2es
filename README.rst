@@ -28,16 +28,16 @@ Features
 
 - Stable log record ID (hostname + file inode number + timestamp + file
   position). It makes possible to import log file more than once (adding some
-  additional processing to nginx2es, or dropping a daily index containing only
-  a half of records, etc) without creating a duplicate records.
+  additional processing to ``nginx2es``, or dropping a daily index containing
+  only a half of records, etc) without creating a duplicate records.
 
 - Parse query params and split request uri path components to separate fields
   for complex log filtering / aggregations.
 
-- Optional use of the GeoIP database (requires the :code:`geoip` module and the
-  GeoIPCity.dat database file) - adds :code:`city` and :code:`region_name` fields.
+- Optional use of the GeoIP database (requires the ``geoip`` module and the
+  ``GeoIPCity.dat`` database file) - adds ``city`` and ``region_name`` fields.
 
 - Correctly parse log records containing information about multiple upstream
   responses.
 
-- The :code:`tail -F`-like mode implemented with inotify.
+- The ``tail -F``-like mode implemented with inotify.
