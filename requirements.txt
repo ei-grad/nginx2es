@@ -1,4 +1,5 @@
 elasticsearch
+fast_json
 click
 six
 python-dateutil

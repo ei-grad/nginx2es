@@ -57,7 +57,7 @@ class Watcher(object):
 
         with INotify() as inotify:
             logging.info("starting watch on %s (inode %d)", self.filename, inode)
-            inotify.add_watch(self.filename, flags.MODIFY | flags.CLOSE_WRITE)
+            inotify.add_watch(self.filename, flags.MODIFY | flags.CLOSE_WRITE | flags.MOVE_SELF)
             for i in yield_until_eof(f):
                 yield i
             for i in self._watch_until_closed(f, inotify):
@@ -71,12 +71,16 @@ class Watcher(object):
 
     def _watch_until_closed(self, f, inotify):
         closed = False
-        while not closed:
+        moved = False
+        while not (closed and moved):
             events = inotify.read()
             for event in events:
                 if event.mask & flags.CLOSE_WRITE:
                     logging.debug('got CLOSE_WRITE')
                     closed = True
+                if event.mask & flags.MOVE_SELF:
+                    logging.debug('got MOVE_SELF')
+                    moved = True
                 elif event.mask & flags.MODIFY:
                     logging.debug('got MODIFY')
                     for i in yield_until_eof(f):
