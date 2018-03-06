@@ -21,8 +21,7 @@ class Nginx2ES(object):
             doc = self.parser(line)
             if doc is not None:
                 yield {
-                    '_id': '%s-%s-%s-%s' % (doc['@hostname'], inode, pos,
-                                            doc['@timestamp'].strftime('%s')),
+                    '_id': doc.pop('request_id'),
                     '_index': doc['@timestamp'].strftime(self.index),
                     '_type': 'nginx2es',
                     '_source': doc

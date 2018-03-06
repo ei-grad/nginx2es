@@ -1,45 +1,15 @@
 """
-Parse nginx access.log and put parsed lines to Elasticsearch.
-
-Nginx access.log have to be formatted with this format:
-
-log_format main_ext
-    '$remote_addr $http_host $remote_user [$time_local] "$request" '
-    '$status $body_bytes_sent "$http_referer" '
-    '"$http_user_agent" "$http_x_forwarded_for" '
-    'rt=$request_time ua="$upstream_addr" '
-    'us="$upstream_status" ut="$upstream_response_time" '
-    'ul="$upstream_response_length" '
-    'cs=$upstream_cache_status';
+Parse json-encoded nginx access.log and put parsed lines to Elasticsearch.
 """
 
 from six.moves.urllib.parse import splitquery, parse_qs
 import dateutil.parser
-import logging
-
-import re
-
-main_ext = re.compile(
-    '(?P<remote_addr>[^ ]+) (?P<http_host>[^ ]+) (?P<remote_user>[^ ]+) '
-    '\[(?P<time_local>[^\]]+)\] '
-    '"(?P<verb>[A-Z]+) (?P<request>[^ ]+) HTTP/(?P<http_version>[0-9\.]+)" '
-    '(?P<status>[0-9]+) '
-    '(?P<body_bytes_sent>[0-9-]+) '
-    '"(?P<http_referer>[^"]+)" '
-    '"(?P<http_user_agent>[^"]+)" '
-    '"(?P<http_x_forwarded_for>[^"]+)" '
-    'rt=(?P<request_time>[0-9\.-]+) '
-    'ua="(?P<upstream_addr>[^"]+)" '
-    'us="(?P<upstream_status>[^"]+)" '
-    'ut="(?P<upstream_response_time>[^"]+)" '
-    'ul="(?P<upstream_response_length>[^"]+)" '
-    'cs=(?P<upstream_cache_status>[A-Z-]+)'
-    '( (?P<remainder>.*))?')
+import fast_json as json
 
 
 def timestamp_parser(ts):
     # python2.x strptime doesn't support %z :-(
-    return dateutil.parser.parse(ts.replace(':', ' ', 1))
+    return dateutil.parser.parse(ts)
 
 
 class AccessLogParser(object):
@@ -52,15 +22,9 @@ class AccessLogParser(object):
 
     def __call__(self, line):
 
-        m = main_ext.match(line.strip())
+        d = json.loads(line)
 
-        if m is None:
-            logging.warning("[no match] %s", line)
-            return None
-
-        d = m.groupdict()
-
-        d['@timestamp'] = self.timestamp_parser(d['time_local'])
+        d['@timestamp'] = self.timestamp_parser(d.pop('timestamp'))
         if self.hostname is not None:
             d['@hostname'] = self.hostname
 
@@ -87,34 +51,39 @@ class AccessLogParser(object):
             if i:  # skip the empty 0-th and last components
                 d['request_path_%d' % n] = i
 
-        d['status'] = int(d['status'])
-        d['body_bytes_sent'] = int(d['body_bytes_sent'])
+        d['bytes_sent'] = int(d['bytes_sent'])
 
-        if d['http_user_agent'] == '-':
-            del d['http_user_agent']
+        if 'user_agent' in d and not d['user_agent']:
+            del d['user_agent']
 
-        if d['http_referer'] == '-':
-            del d['http_referer']
+        if 'referrer' in d and not d['referrer']:
+            del d['referrer']
 
         d['request_time'] = float(d['request_time'])
 
         for i in [
-                'http_x_forwarded_for', 'upstream_addr', 'upstream_status',
-                'upstream_response_time', 'upstream_response_length'
+                'forwarded_for', 'upstream_addr', 'upstream_status',
+                'upstream_response_time', 'upstream_response_length',
+                'upstream_connect_time',
         ]:
-            if d[i] == '-':
+            if d[i] == '-' or not d[i].strip():
                 del d[i]
             else:
-                d[i] = [j for j in d[i].replace(', ', ' : ').split(' : ') if j]
+                d[i] = [j.strip() for j in d[i].replace(', ', ' : ').split(' : ') if j.strip()]
 
         if 'upstream_response_time' in d:
             d['upstream_response_time'] = [
-                float(i) for i in d['upstream_response_time'] if i != '-'
+                float(i) for i in d['upstream_response_time'] if i
+            ]
+
+        if 'upstream_connect_time' in d:
+            d['upstream_connect_time'] = [
+                float(i) for i in d['upstream_connect_time'] if i
             ]
 
         if 'upstream_response_length' in d:
             d['upstream_response_length'] = [
-                int(i) for i in d['upstream_response_length'] if i != '-'
+                int(i) for i in d['upstream_response_length'] if i
             ]
 
         if self.geoip is not None:
