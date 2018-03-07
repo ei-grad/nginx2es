@@ -78,7 +78,7 @@ class Watcher(object):
                 if event.mask & flags.CLOSE_WRITE:
                     logging.debug('got CLOSE_WRITE')
                     closed = True
-                if event.mask & flags.MOVE_SELF:
+                elif event.mask & flags.MOVE_SELF:
                     logging.debug('got MOVE_SELF')
                     moved = True
                 elif event.mask & flags.MODIFY:
