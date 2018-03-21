@@ -237,7 +237,7 @@ def main(
         check_template(es, template_name, template, force_create_template)
         run = nginx2es.run
 
-    f = click.open_file(filename)
+    f = click.open_file(filename, errors='ignore')
     if not f.seekable():
         if '--mode' in sys.argv:
             logging.warning("using --mode argument while reading from stream is incorrect")
