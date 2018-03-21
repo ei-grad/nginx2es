@@ -31,8 +31,11 @@ class Nginx2ES(object):
 
         buffer = []
 
+        # fire when buffer is filled by filler
         filled = threading.Event()
-        flushed = threading.Event()
+        # fire when flusher has pulled the buffer contents
+        flusher_pull_complete = threading.Event()
+        # fire when faced EOF in one-shot mode
         eof = threading.Event()
         buffer_lock = threading.Lock()
 
@@ -43,8 +46,8 @@ class Nginx2ES(object):
                 if len(buffer) >= self.chunk_size:
                     filled.set()
                     buffer_lock.release()
-                    flushed.wait()
-                    flushed.clear()
+                    flusher_pull_complete.wait()
+                    flusher_pull_complete.clear()
                 else:
                     buffer_lock.release()
             eof.set()
@@ -68,7 +71,7 @@ class Nginx2ES(object):
                     to_flush = list(buffer)
                     buffer.clear()
                     buffer_lock.release()
-                    flushed.set()
+                    flusher_pull_complete.set()
                 else:
                     buffer_lock.release()
 
