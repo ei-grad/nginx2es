@@ -31,7 +31,10 @@ class AccessLogParser(object):
         if d['remote_user'] == '-':
             del d['remote_user']
 
-        d['request_path'], d['request_qs'] = splitquery(d['request'])
+        if 'request_uri' not in d and 'request' in d:
+            _, d['request_uri'], d['server_protocol'] = d.pop('request').split()
+
+        d['request_path'], d['request_qs'] = splitquery(d['request_uri'])
 
         if d['request_qs'] is None:
             del d['request_qs']
