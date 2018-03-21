@@ -86,6 +86,9 @@ class AccessLogParser(object):
                 int(i) for i in d['upstream_response_length']
             ]
 
+        if 'upstream_cache_status' in d and d['upstream_cache_status'] == "":
+            del d['upstream_cache_status']
+
         if self.geoip is not None:
             g = self.geoip.record_by_name(d['remote_addr'])
             if g is not None:
