@@ -66,24 +66,24 @@ class AccessLogParser(object):
                 'upstream_response_time', 'upstream_response_length',
                 'upstream_connect_time',
         ]:
-            if d[i] == '-' or not d[i].strip():
+            d[i] = [j.strip() for j in d[i].replace(', ', ' : ').split(' : ')]
+            d[i] = [j for j in d[i] if j not in ('', '-')]
+            if not d[i]:
                 del d[i]
-            else:
-                d[i] = [j.strip() for j in d[i].replace(', ', ' : ').split(' : ') if j.strip()]
 
         if 'upstream_response_time' in d:
             d['upstream_response_time'] = [
-                float(i) for i in d['upstream_response_time'] if i
+                float(i) for i in d['upstream_response_time']
             ]
 
         if 'upstream_connect_time' in d:
             d['upstream_connect_time'] = [
-                float(i) for i in d['upstream_connect_time'] if i
+                float(i) for i in d['upstream_connect_time']
             ]
 
         if 'upstream_response_length' in d:
             d['upstream_response_length'] = [
-                int(i) for i in d['upstream_response_length'] if i
+                int(i) for i in d['upstream_response_length']
             ]
 
         if self.geoip is not None:
