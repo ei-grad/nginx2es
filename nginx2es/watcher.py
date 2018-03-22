@@ -38,7 +38,7 @@ class Watcher(object):
 
     def watch(self):
 
-        f = open(self.filename)
+        f = open(self.filename, errors='ignore')
         inode = os.stat(f.fileno()).st_ino
 
         # if this is not the first watch pass
