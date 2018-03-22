@@ -38,25 +38,26 @@ class AccessLogParser(object):
                 del d['request']
 
         if 'request_uri' in d:
+
             d['request_path'], d['request_qs'] = splitquery(d['request_uri'])
 
-        if d['request_qs'] is None:
-            del d['request_qs']
-        else:
-            d['query'] = parse_qs(d['request_qs'])
-            lon_alias = 'lng' if 'lng' in d['query'] else 'lon'
-            if 'lat' in d['query'] and lon_alias in d['query']:
-                try:
-                    d['query_geo'] = {
-                        'lat': float(d['query']['lat'][0]),
-                        'lon': float(d['query'][lon_alias][0]),
-                    }
-                except ValueError:
-                    pass
+            if d['request_qs'] is None:
+                del d['request_qs']
+            else:
+                d['query'] = parse_qs(d['request_qs'])
+                lon_alias = 'lng' if 'lng' in d['query'] else 'lon'
+                if 'lat' in d['query'] and lon_alias in d['query']:
+                    try:
+                        d['query_geo'] = {
+                            'lat': float(d['query']['lat'][0]),
+                            'lon': float(d['query'][lon_alias][0]),
+                        }
+                    except ValueError:
+                        pass
 
-        for n, i in enumerate(d['request_path'].split('/')):
-            if i:  # skip the empty 0-th and last components
-                d['request_path_%d' % n] = i
+            for n, i in enumerate(d['request_path'].split('/')):
+                if i:  # skip the empty 0-th and last components
+                    d['request_path_%d' % n] = i
 
         d['bytes_sent'] = int(d['bytes_sent'])
 
