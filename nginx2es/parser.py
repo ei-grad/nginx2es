@@ -40,8 +40,15 @@ class AccessLogParser(object):
 
             if d['request_qs'] is None:
                 del d['request_qs']
+
             else:
+
                 d['query'] = parse_qs(d['request_qs'])
+
+                for i in list(d['query']):
+                    if '.' in i:
+                        d['query'][i.replace('.', '_')] = d['query'].pop(i)
+
                 lon_alias = 'lng' if 'lng' in d['query'] else 'lon'
                 if 'lat' in d['query'] and lon_alias in d['query']:
                     try:
