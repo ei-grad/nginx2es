@@ -28,9 +28,6 @@ class AccessLogParser(object):
         if self.hostname is not None:
             d['@hostname'] = self.hostname
 
-        if d['remote_user'] == '-':
-            del d['remote_user']
-
         if 'request_uri' not in d and 'request' in d:
             s = d['request'].split()
             if len(s) == 3:
@@ -94,8 +91,9 @@ class AccessLogParser(object):
                 int(i) for i in d['upstream_response_length']
             ]
 
-        if 'upstream_cache_status' in d and d['upstream_cache_status'] == "":
-            del d['upstream_cache_status']
+        for i in list(d):
+            if d[i] in ('-', ''):
+                del d[i]
 
         if self.geoip is not None:
             g = self.geoip.record_by_name(d['remote_addr'])
