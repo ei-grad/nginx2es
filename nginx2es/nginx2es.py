@@ -40,16 +40,19 @@ class Nginx2ES(object):
         buffer_lock = threading.Lock()
 
         def filler():
-            for i in self.gen(file):
-                buffer_lock.acquire()
-                buffer.append(i)
-                if len(buffer) >= self.chunk_size:
-                    filled.set()
-                    buffer_lock.release()
-                    flusher_pull_complete.wait()
-                    flusher_pull_complete.clear()
-                else:
-                    buffer_lock.release()
+            try:
+                for i in self.gen(file):
+                    buffer_lock.acquire()
+                    buffer.append(i)
+                    if len(buffer) >= self.chunk_size:
+                        filled.set()
+                        buffer_lock.release()
+                        flusher_pull_complete.wait()
+                        flusher_pull_complete.clear()
+                    else:
+                        buffer_lock.release()
+            except Exception:
+                logging.error("exception in filler thread", exc_info=True)
             eof.set()
             filled.set()
 
