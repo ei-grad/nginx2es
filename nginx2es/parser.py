@@ -32,9 +32,13 @@ class AccessLogParser(object):
             del d['remote_user']
 
         if 'request_uri' not in d and 'request' in d:
-            _, d['request_uri'], d['server_protocol'] = d.pop('request').split()
+            s = d['request'].split()
+            if len(s) == 3:
+                _, d['request_uri'], d['server_protocol'] = s
+                del d['request']
 
-        d['request_path'], d['request_qs'] = splitquery(d['request_uri'])
+        if 'request_uri' in d:
+            d['request_path'], d['request_qs'] = splitquery(d['request_uri'])
 
         if d['request_qs'] is None:
             del d['request_qs']
