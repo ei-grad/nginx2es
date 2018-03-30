@@ -1,4 +1,4 @@
-from time import sleep
+from time import sleep, time
 import logging
 import os
 
@@ -72,8 +72,15 @@ class Watcher(object):
     def _watch_until_closed(self, f, inotify):
         closed = False
         moved = False
-        while not (closed and moved):
-            events = inotify.read()
+        wait_teardown = None
+        while True:
+            if closed and moved:
+                if wait_teardown is None:
+                    wait_teardown = time() + 10.
+                else:
+                    if wait_teardown > time():
+                        break
+            events = inotify.read(1000)
             for event in events:
                 if event.mask & flags.CLOSE_WRITE:
                     logging.debug('got CLOSE_WRITE')
