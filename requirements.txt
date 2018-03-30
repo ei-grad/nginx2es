@@ -1,7 +1,8 @@
-elasticsearch
-fast_json
 click
-six
-python-dateutil
-inotify_simple
+elasticsearch
 entrypoints
+fast_json
+inotify_simple
+python-dateutil
+raven
+six

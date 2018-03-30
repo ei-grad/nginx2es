@@ -195,6 +195,9 @@ def load_extensions(extensions):
     default=30,
     help="elasticsearch request timeout")
 @click.option(
+    '--sentry',
+    help="sentry dsn")
+@click.option(
     '--stdout', is_flag=True, help="output to stdout instead of elasticsearch")
 @click.option('--log-level', default="INFO", help="log level")
 def main(
@@ -212,11 +215,16 @@ def main(
         template,
         template_name,
         timeout,
+        sentry,
         stdout,
         log_level,
 ):
 
     logging.basicConfig(level=log_level.upper())
+
+    if sentry:
+        import raven
+        sentry = raven.Client(sentry)
 
     logging.debug('elasticsearch: %s', elastic)
 
