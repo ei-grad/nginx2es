@@ -220,7 +220,7 @@ def main(
         log_level,
 ):
 
-    logging.basicConfig(level=log_level.upper())
+    logging.basicConfig(level=log_level.upper(), fmt='%(asctime)s %(levelname)s %(message)s')
 
     if sentry:
         import raven
