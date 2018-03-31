@@ -120,17 +120,17 @@ class Stat(threading.Thread):
 
         df = pandas.DataFrame.from_records(rows)
 
-        if 'request_path_1' in df:
+        if 'request_path_1' not in df:
             df['request_path_1'] = '#'
 
         df['request_path_1'].fillna('#', inplace=True)
 
-        if 'request_path_2' in df:
+        if 'request_path_2' not in df:
             df['request_path_2'] = '#'
 
         df['request_path_2'].fillna('#', inplace=True)
 
-        if 'upstream_cache_status' in df:
+        if 'upstream_cache_status' not in df:
             df['upstream_cache_status'] = 'NONE'
 
         df['upstream_cache_status'].fillna('NONE', inplace=True)
