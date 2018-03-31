@@ -55,7 +55,7 @@ class Stat(threading.Thread):
                 continue
             break
         if s is None:
-            raise Exception("Can't connect to graphite!")
+            raise Exception("Can't connect to carbon!")
         self.output = s.makefile('w')
 
     def hit(self, row):
@@ -136,7 +136,7 @@ class Stat(threading.Thread):
 
         # upstream_response_time is a list (nginx could ask several upstreams
         # per single request if the first upstream fails), but I believe it
-        # doesn't worth powder and shot to deliver all these times to graphite
+        # doesn't worth powder and shot to deliver all these times to carbon
         # (just the last - should be enought), the backend logs should be
         # delivered separately instead
         df['upstream_response_time'] = df.upstream_response_time.map(

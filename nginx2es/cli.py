@@ -191,10 +191,10 @@ def load_extensions(extensions):
     default='nginx',
     help="template name to use for index template")
 @click.option(
-    '--graphite',
+    '--carbon',
     help="carbon host:port to send http stats")
 @click.option(
-    '--graphite-prefix',
+    '--carbon-prefix',
     help="carbon metrics prefix (default: 'nginx2es.$hostname'")
 @click.option(
     '--timeout',
@@ -220,8 +220,8 @@ def main(
         ext,
         template,
         template_name,
-        graphite,
-        graphite_prefix,
+        carbon,
+        carbon_prefix,
         timeout,
         sentry,
         stdout,
@@ -244,17 +244,17 @@ def main(
         hostname, geoip=geoip, extensions=load_extensions(ext),
     )
 
-    if graphite:
+    if carbon:
         from nginx2es.stat import Stat
-        if graphite_prefix is None:
-            graphite_prefix = 'nginx2es.%s' % hostname
+        if carbon_prefix is None:
+            carbon_prefix = 'nginx2es.%s' % hostname
         stat_kwargs = {
-            'prefix': graphite_prefix
+            'prefix': carbon_prefix
         }
-        if ':' in graphite:
-            graphite, graphite_port = graphite.split(':')
-            stat_kwargs['port'] = int(graphite_port)
-        stat_kwargs['host'] = graphite
+        if ':' in carbon:
+            carbon, carbon_port = carbon.split(':')
+            stat_kwargs['port'] = int(carbon_port)
+        stat_kwargs['host'] = carbon
         stat = Stat(**stat_kwargs)
         if stdout:
             stat.output = sys.stdout
