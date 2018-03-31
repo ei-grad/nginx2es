@@ -104,8 +104,10 @@ class Stat(threading.Thread):
             self.output.write(metric_string)
         self.output.flush()
 
-    def metric_interval_for_histogram(self, series):
+    def log10_bins(self, series):
         # TODO: add docstring!
+        # Values starting from -30, which corresponds to arguments starting from 0.001.
+        # The -31 value corresponds to the arguments which are less than 0.001.
         pow10 = (np.log10(series.replace(0, np.nan)) * 10.).fillna(-31).astype(np.int)
         return (10. ** (pow10 / 10) * 1000).map(lambda x: '%d' % x)
 
@@ -143,11 +145,9 @@ class Stat(threading.Thread):
             lambda x: np.nan if x is np.nan else x[-1])
 
         # these histograms could be used to specify colors or calculate
-        # percentiles approximation
-        df['request_time_interval'] = self.metric_interval_for_histogram(
-            df['request_time'])
-        df['upstream_response_time_interval'] = self.metric_interval_for_histogram(
-            df['upstream_response_time'])
+        # aggregatable percentiles approximation
+        df['request_time_interval'] = self.log10_bins(df['request_time'])
+        df['upstream_response_time_interval'] = self.log10_bins(df['upstream_response_time'])
 
         # request counts
         for dims, value in df.groupby([
@@ -157,9 +157,18 @@ class Stat(threading.Thread):
         ]).size().items():
             yield self.metric_name('count', dims), value
 
+        # upstream response time
+        g = df[~df.upstream_response_time.isna()].groupby([
+                'host', 'request_path_1', 'request_path_2', 'status',
+        ]).upstream_response_time
+        for dims, value in g.sum().items():
+            yield self.metric_name('upstream_response_time', 'sum', dims), value
+        for dims, value in g.count().items():
+            yield self.metric_name('upstream_response_time', 'count', dims), value
+
         # sent bytes
         for dims, value in df.groupby([
-                'host', 'request_path_1', 'request_path_2'
+                'host', 'request_path_1', 'request_path_2', 'status',
         ]).bytes_sent.sum().items():
             yield self.metric_name('bytes_sent', dims), value
 
