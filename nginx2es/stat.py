@@ -100,6 +100,8 @@ class Stat(threading.Thread):
 
     def send_metrics(self, metrics, timestamp):
         for name, value in metrics:
+            if isinstance(value, float):
+                value = '%.3f' % value
             metric_string = "%s %s %s\n" % (name, value, timestamp)
             self.output.write(metric_string)
         self.output.flush()
