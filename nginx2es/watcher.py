@@ -1,4 +1,4 @@
-from time import sleep, time
+from time import time
 import logging
 import os
 
@@ -27,8 +27,6 @@ class Watcher(object):
     def __init__(self, filename, from_start=False):
         self.filename = filename
         self.from_start = from_start
-        self.last_inode = None
-        self.last_pos = None
 
     def __iter__(self):
         while True:
@@ -38,42 +36,30 @@ class Watcher(object):
     def watch(self):
 
         f = open(self.filename, errors='ignore')
-        inode = os.stat(f.fileno()).st_ino
 
-        # if this is not the first watch pass
-        if self.last_inode is not None:
-            # seek to last position if file is not changed
-            if inode == self.last_inode:
-                f.seek(self.last_pos)
-                if f.tell() != self.last_pos:
-                    # file was copytruncated?
-                    f.seek(0, 0)
-        # if it is the first watch pass
-        else:
-            # rewind to end of the file if not asked to start from begin
-            if not self.from_start:
-                f.seek(0, 2)
+        # rewind to end of the file if not asked to start from begin
+        if not self.from_start:
+            f.seek(0, 2)
 
-        with INotify() as inotify:
-            logging.info("starting watch on %s (inode %d)", self.filename, inode)
-            inotify.add_watch(self.filename, flags.MODIFY | flags.CLOSE_WRITE | flags.MOVE_SELF)
-            for i in yield_until_eof(f):
-                yield i
-            for i in self._watch_until_closed(f, inotify):
-                yield i
-            logging.info("finished watch on %s (inode %d)", self.filename, inode)
-
-        self.last_inode = inode
-        self.last_pos = f.tell()
+        try:
+            with INotify() as inotify:
+                inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
+                for i in yield_until_eof(f):
+                    yield i
+                for i in self.watch_until_closed(f, inotify):
+                    yield i
+        except:
+            logging.error("exception in watcher, current file position: %d",
+                          f.tell(), exc_info=True)
+            raise
 
         f.close()
 
-    def _watch_until_closed(self, f, inotify):
-        closed = False
+    def watch_until_closed(self, f, inotify):
         moved = False
         wait_teardown = None
         while True:
-            if closed and moved:
+            if moved:
                 if wait_teardown is None:
                     wait_teardown = time() + 10.
                 else:
@@ -81,14 +67,10 @@ class Watcher(object):
                         break
             events = inotify.read(1000)
             for event in events:
-                if event.mask & flags.CLOSE_WRITE:
-                    logging.debug('got CLOSE_WRITE')
-                    closed = True
-                elif event.mask & flags.MOVE_SELF:
-                    logging.debug('got MOVE_SELF')
+                if event.mask & flags.MOVE_SELF:
+                    logging.info('file has been moved')
                     moved = True
                 elif event.mask & flags.MODIFY:
-                    logging.debug('got MODIFY')
                     for i in yield_until_eof(f):
                         yield i
                 else:
