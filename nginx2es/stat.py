@@ -115,14 +115,30 @@ class Stat(threading.Thread):
             return
 
         df = pandas.DataFrame.from_records(rows)
+
+        if 'request_path_1' in df:
+            df['request_path_1'] = '#'
+
         df['request_path_1'].fillna('#', inplace=True)
+
+        if 'request_path_2' in df:
+            df['request_path_2'] = '#'
+
         df['request_path_2'].fillna('#', inplace=True)
+
+        if 'upstream_cache_status' in df:
+            df['upstream_cache_status'] = 'NONE'
+
         df['upstream_cache_status'].fillna('NONE', inplace=True)
+
+        if 'upstream_response_time' not in df:
+            df['upstream_response_time'] = np.nan
+
         # upstream_response_time is a list (nginx could ask several upstreams
         # per single request if the first upstream fails), but I believe it
-        # doesn't worth powder and shot to deliver all these times to graphite,
-        # just the last would be ok, the backend logs should be delivered
-        # separately instead
+        # doesn't worth powder and shot to deliver all these times to graphite
+        # (just the last - should be enought), the backend logs should be
+        # delivered separately instead
         df['upstream_response_time'] = df.upstream_response_time.map(
             lambda x: np.nan if x is np.nan else x[-1])
 
