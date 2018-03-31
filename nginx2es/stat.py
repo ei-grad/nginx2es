@@ -159,7 +159,16 @@ class Stat(threading.Thread):
         ]).size().items():
             yield self.metric_name('count', dims), value
 
-        # upstream response time
+        # request time sum / count
+        g = df.groupby([
+                'host', 'request_path_1', 'request_path_2', 'status',
+        ]).request_time
+        for dims, value in g.sum().items():
+            yield self.metric_name('request_time', 'sum', dims), value
+        for dims, value in g.count().items():
+            yield self.metric_name('request_time', 'count', dims), value
+
+        # upstream response time sum / count
         g = df[~df.upstream_response_time.isna()].groupby([
                 'host', 'request_path_1', 'request_path_2', 'status',
         ]).upstream_response_time
@@ -174,23 +183,26 @@ class Stat(threading.Thread):
         ]).bytes_sent.sum().items():
             yield self.metric_name('bytes_sent', dims), value
 
-        # It doesn't make sense to drill percentiles deeper than host, because
+        # It doesn't make sense to drill exact percentiles deeper than host, because
         # you don't really want to know request time percentiles for any
         # request path and they can't be re-aggregated from drilled values.
-        # Instead, the approximation of percentiles for different request paths
-        # should be calculated from the histograms (but, yeah, there is no
-        # simple way to do it).
+        # Instead, the approximation of different request paths percentiles
+        # should be calculated from the histograms (there is a handy
+        # quantileExactWeighted() function in clickhouse for that).
         g = df.groupby('host')
 
         q = [.50, .75, .90, .99]
 
         # request_time percentiles
         for dims, value in g.request_time.quantile(q).items():
-            yield self.metric_name('request_time', dims[:-1], 'p%d' % (dims[-1] * 100)), value
+            yield self.metric_name('request_time', 'percentiles',
+                                   dims[:-1], 'p%d' % (dims[-1] * 100)), value
 
+        g = df[~df.upstream_response_time.isna()].groupby('host')
         # upstream_response_time percentiles
         for dims, value in g.upstream_response_time.quantile(q).items():
-            yield self.metric_name('upstream_response_time', dims[:-1], 'p%d' % (dims[-1] * 100)), value
+            yield self.metric_name('upstream_response_time', 'percentiles',
+                                   dims[:-1], 'p%d' % (dims[-1] * 100)), value
 
     def metric_name(self, *args):
         parts = self.prefix.split('.')
