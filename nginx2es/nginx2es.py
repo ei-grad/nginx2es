@@ -17,7 +17,7 @@ class Nginx2ES(object):
         self.stat = stat
 
     def gen(self, file):
-        for line_num, (inode, pos, line) in enumerate(file):
+        for line_num, line in enumerate(file):
             doc = self.parser(line)
             if doc is not None:
                 if self.stat is not None:

@@ -118,13 +118,6 @@ def check_template(es, name, template, force):
         es.indices.put_template(name, DEFAULT_TEMPLATE)
 
 
-def yield_from_stream(f):
-    offset = 0
-    for i in f:
-        yield None, offset, i
-        offset += len(i)
-
-
 def load_extensions(extensions):
 
     ret = []
@@ -280,9 +273,9 @@ def main(
     if not f.seekable():
         if '--mode' in sys.argv:
             logging.warning("using --mode argument while reading from stream is incorrect")
-        run(yield_from_stream(f))
+        run(f)
     elif mode == 'one-shot':
-        run(yield_until_eof(f))
+        run(f)
     else:
         from_start = (mode == 'from-start')
         run(Watcher(filename, from_start))

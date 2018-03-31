@@ -19,7 +19,7 @@ def yield_until_eof(f):
                 f.seek(pos)
                 # exit
                 break
-            yield stat.st_ino, pos, line
+            yield line
 
 
 class Watcher(object):
