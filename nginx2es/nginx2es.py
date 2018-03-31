@@ -1,5 +1,4 @@
 import logging
-
 import threading
 
 from elasticsearch import JSONSerializer
@@ -8,18 +7,21 @@ from elasticsearch.helpers import streaming_bulk
 
 class Nginx2ES(object):
 
-    def __init__(self, es, parser, index, chunk_size=500, max_retries=3, max_delay=10.):
+    def __init__(self, es, parser, index, stat=None, chunk_size=500, max_retries=3, max_delay=10.):
         self.es = es
         self.parser = parser
         self.index = index
         self.chunk_size = chunk_size
         self.max_retries = max_retries
         self.max_delay = max_delay
+        self.stat = stat
 
     def gen(self, file):
         for line_num, (inode, pos, line) in enumerate(file):
             doc = self.parser(line)
             if doc is not None:
+                if self.stat is not None:
+                    self.stat.hit(doc)
                 yield {
                     '_id': doc.pop('request_id'),
                     '_index': doc['@timestamp'].strftime(self.index),
@@ -97,7 +99,15 @@ class Nginx2ES(object):
         filler_thread.join()
         flusher_thread.join()
 
+        if self.stat is not None:
+            self.stat.eof.set()
+            self.stat.join()
+
     def stdout(self, file):
         s = JSONSerializer()
         for i in self.gen(file):
             print(s.dumps(i))
+
+        if self.stat is not None:
+            self.stat.eof.set()
+            self.stat.join()

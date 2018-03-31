@@ -16,7 +16,7 @@ class AccessLogParser(object):
     def __init__(self, hostname, extensions=None, geoip=None,
                  timestamp_parser=timestamp_parser):
         self.hostname = hostname
-        self.extensions = extensions
+        self.extensions = extensions or []
         self.timestamp_parser = timestamp_parser
         self.geoip = geoip
 
@@ -27,6 +27,10 @@ class AccessLogParser(object):
         d['@timestamp'] = self.timestamp_parser(d.pop('timestamp'))
         if self.hostname is not None:
             d['@hostname'] = self.hostname
+
+        for i in list(d):
+            if d[i] in ('-', ''):
+                del d[i]
 
         if 'request_uri' not in d and 'request' in d:
             s = d['request'].split()
@@ -63,21 +67,21 @@ class AccessLogParser(object):
                 if i:  # skip the empty 0-th and last components
                     d['request_path_%d' % n] = i
 
-        d['bytes_sent'] = int(d['bytes_sent'])
+        for i in ['request_length', 'connection_requests', 'bytes_sent', 'connection']:
+            if i in d:
+                d[i] = int(d[i])
 
-        if 'user_agent' in d and not d['user_agent']:
-            del d['user_agent']
-
-        if 'referrer' in d and not d['referrer']:
-            del d['referrer']
-
-        d['request_time'] = float(d['request_time'])
+        for i in ['request_time', 'gzip_ratio']:
+            if i in d:
+                d[i] = float(d[i])
 
         for i in [
                 'forwarded_for', 'upstream_addr', 'upstream_status',
                 'upstream_response_time', 'upstream_response_length',
                 'upstream_connect_time',
         ]:
+            if i not in d:
+                continue
             d[i] = [j.strip() for j in d[i].replace(', ', ' : ').split(' : ')]
             d[i] = [j for j in d[i] if j not in ('', '-')]
             if not d[i]:
@@ -97,10 +101,6 @@ class AccessLogParser(object):
             d['upstream_response_length'] = [
                 int(i) for i in d['upstream_response_length']
             ]
-
-        for i in list(d):
-            if d[i] in ('-', ''):
-                del d[i]
 
         if self.geoip is not None:
             g = self.geoip.record_by_name(d['remote_addr'])

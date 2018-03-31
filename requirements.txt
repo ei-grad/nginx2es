@@ -3,6 +3,8 @@ elasticsearch
 entrypoints
 fast_json
 inotify_simple
+numpy
+pandas
 python-dateutil
 raven
 six

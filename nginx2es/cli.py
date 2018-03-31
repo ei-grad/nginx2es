@@ -191,6 +191,12 @@ def load_extensions(extensions):
     default='nginx',
     help="template name to use for index template")
 @click.option(
+    '--graphite',
+    help="carbon host:port to send http stats")
+@click.option(
+    '--graphite-prefix',
+    help="carbon metrics prefix (default: 'nginx2es.$hostname'")
+@click.option(
     '--timeout',
     default=30,
     help="elasticsearch request timeout")
@@ -214,13 +220,15 @@ def main(
         ext,
         template,
         template_name,
+        graphite,
+        graphite_prefix,
         timeout,
         sentry,
         stdout,
         log_level,
 ):
 
-    logging.basicConfig(level=log_level.upper(), fmt='%(asctime)s %(levelname)s %(message)s')
+    logging.basicConfig(level=log_level.upper(), format='%(asctime)s %(levelname)s %(message)s')
 
     if sentry:
         import raven
@@ -236,8 +244,31 @@ def main(
         hostname, geoip=geoip, extensions=load_extensions(ext),
     )
 
-    nginx2es = Nginx2ES(es, access_log_parser, index, chunk_size, max_retries,
-                        max_delay)
+    if graphite:
+        from nginx2es.stat import Stat
+        if graphite_prefix is None:
+            graphite_prefix = 'nginx2es.%s' % hostname
+        stat_kwargs = {
+            'prefix': graphite_prefix
+        }
+        if ':' in graphite:
+            graphite, graphite_port = graphite.split(':')
+            stat_kwargs['port'] = int(graphite_port)
+        stat_kwargs['host'] = graphite
+        stat = Stat(**stat_kwargs)
+        if stdout:
+            stat.output = sys.stdout
+        else:
+            stat.connect()
+        stat.start()
+    else:
+        stat = None
+
+    nginx2es = Nginx2ES(es, access_log_parser, index,
+                        stat=stat,
+                        chunk_size=chunk_size,
+                        max_retries=max_retries,
+                        max_delay=max_delay)
 
     if stdout:
         run = nginx2es.stdout
@@ -253,7 +284,8 @@ def main(
     elif mode == 'one-shot':
         run(yield_until_eof(f))
     else:
-        run(Watcher(filename, mode == 'from-start'))
+        from_start = (mode == 'from-start')
+        run(Watcher(filename, from_start))
 
 
 if __name__ == "__main__":
