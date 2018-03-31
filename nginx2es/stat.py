@@ -144,7 +144,7 @@ class Stat(threading.Thread):
         # (just the last - should be enought), the backend logs should be
         # delivered separately instead
         df['upstream_response_time'] = df.upstream_response_time.map(
-            lambda x: np.nan if x is np.nan else x[-1])
+            lambda x: x[-1] if isinstance(x, list) else x)
 
         # these histograms could be used to specify colors or calculate
         # aggregatable percentiles approximation
