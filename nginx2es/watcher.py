@@ -2,6 +2,8 @@ from time import time
 import logging
 import os
 
+import click
+
 from inotify_simple import INotify, flags
 
 
@@ -35,7 +37,7 @@ class Watcher(object):
 
     def watch(self):
 
-        f = open(self.filename, errors='ignore')
+        f = click.open_file(self.filename, errors='replace')
 
         # rewind to end of the file if not asked to start from begin
         if not self.from_start:
