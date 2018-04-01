@@ -225,7 +225,12 @@ def main(
 
     if sentry:
         import raven
+        import raven.conf
+        import raven.handlers.logging
         sentry = raven.Client(sentry)
+        sentry_handler = raven.handlers.logging.SentryHandler(sentry)
+        sentry_handler.setLevel(logging.ERROR)
+        raven.conf.setup_logging(sentry_handler)
 
     logging.debug('elasticsearch: %s', elastic)
 
