@@ -90,7 +90,10 @@ class Nginx2ES(object):
                             raise_on_exception=False,
                             yield_ok=False,
                     ):
-                        logging.error(response)
+                        logging.error("index request %s for %s: %s",
+                                      response['index']['status'],
+                                      response['index']['_id'],
+                                      response['index']['error'])
 
         flusher_thread = threading.Thread(target=flusher)
         flusher_thread.daemon = True
