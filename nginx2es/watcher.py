@@ -1,8 +1,6 @@
-from time import time
+from time import sleep
 import logging
 import os
-
-import click
 
 from inotify_simple import INotify, flags
 
@@ -26,48 +24,44 @@ def yield_until_eof(f):
 
 class Watcher(object):
 
-    def __init__(self, filename, from_start=False):
+    def __init__(self, filename, from_start=False, teardown_timeout=10.):
         self.filename = filename
         self.from_start = from_start
+        self.teardown_timeout = teardown_timeout
+        self.inotify = INotify()
+        self.inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
 
     def __iter__(self):
         while True:
-            for i in self.watch():
-                yield i
+            with open(self.filename, errors='replace') as f:
+                try:
+                    for i in self.watch(f):
+                        yield i
+                except:
+                    logging.error("exception in watcher, current file position: %d",
+                                  f.tell(), exc_info=True)
+                    raise
 
-    def watch(self):
-
-        f = open(self.filename, errors='replace')
-
-        # rewind to end of the file if not asked to start from begin
+    def watch(self, f):
+        # rewind to end of the file if needed
         if not self.from_start:
-            f.seek(0, 2)
+            f.seek(0, os.SEEK_END)
+            # new files should always be readed from start
+            self.from_start = True
+        # read current contents of file
+        for i in yield_until_eof(f):
+            yield i
+        for i in self.yield_until_moved(f):
+            yield i
+        # wait some time for nginx processes to flush logs to current file
+        sleep(self.teardown_timeout)
+        for i in yield_until_eof(f):
+            yield i
 
-        try:
-            with INotify() as inotify:
-                inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
-                for i in yield_until_eof(f):
-                    yield i
-                for i in self.watch_until_closed(f, inotify):
-                    yield i
-        except:
-            logging.error("exception in watcher, current file position: %d",
-                          f.tell(), exc_info=True)
-            raise
-
-        f.close()
-
-    def watch_until_closed(self, f, inotify):
+    def yield_until_moved(self, f):
         moved = False
-        wait_teardown = None
-        while True:
-            if moved:
-                if wait_teardown is None:
-                    wait_teardown = time() + 10.
-                else:
-                    if wait_teardown > time():
-                        break
-            events = inotify.read(1000)
+        while not moved:
+            events = self.inotify.read()
             for event in events:
                 if event.mask & flags.MOVE_SELF:
                     logging.info('file has been moved')
