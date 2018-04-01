@@ -12,7 +12,7 @@ import click
 
 from .parser import AccessLogParser
 from .nginx2es import Nginx2ES
-from .watcher import yield_until_eof, Watcher
+from .watcher import Watcher
 
 
 DEFAULT_TEMPLATE = {
