@@ -188,6 +188,14 @@ def load_extensions(extensions):
     '--carbon',
     help="carbon host:port to send http stats")
 @click.option(
+    '--carbon-interval',
+    default=10,
+    help="carbon host:port to send http stats")
+@click.option(
+    '--carbon-delay',
+    type=int,
+    help="stats delay (defaults to interval)")
+@click.option(
     '--carbon-prefix',
     help="carbon metrics prefix (default: 'nginx2es.$hostname'")
 @click.option(
@@ -215,6 +223,8 @@ def main(
         template,
         template_name,
         carbon,
+        carbon_interval,
+        carbon_delay,
         carbon_prefix,
         timeout,
         sentry,
@@ -248,12 +258,15 @@ def main(
         if carbon_prefix is None:
             carbon_prefix = 'nginx2es.%s' % hostname
         stat_kwargs = {
-            'prefix': carbon_prefix
+            'prefix': carbon_prefix,
+            'interval': carbon_interval,
         }
         if ':' in carbon:
             carbon, carbon_port = carbon.split(':')
             stat_kwargs['port'] = int(carbon_port)
         stat_kwargs['host'] = carbon
+        if carbon_delay:
+            stat_kwargs['delay'] = carbon_delay
         stat = Stat(**stat_kwargs)
         if stdout:
             stat.output = sys.stdout
