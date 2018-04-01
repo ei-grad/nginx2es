@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import io
 import json
 import logging
 import socket
@@ -274,7 +275,10 @@ def main(
         check_template(es, template_name, template, force_create_template)
         run = nginx2es.run
 
-    f = click.open_file(filename, errors='replace')
+    if filename == '-':
+        f = io.TextIOWrapper(sys.stdin.buffer, errors='replace')
+    else:
+        f = open(filename, errors='replace')
 
     if not f.seekable():
         if '--mode' in sys.argv:
@@ -283,6 +287,7 @@ def main(
     elif mode == 'one-shot':
         run(f)
     else:
+        f.close()
         from_start = (mode == 'from-start')
         run(Watcher(filename, from_start))
 

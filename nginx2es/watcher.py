@@ -37,7 +37,7 @@ class Watcher(object):
 
     def watch(self):
 
-        f = click.open_file(self.filename, errors='replace')
+        f = open(self.filename, errors='replace')
 
         # rewind to end of the file if not asked to start from begin
         if not self.from_start:
