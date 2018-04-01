@@ -21,18 +21,22 @@ class Stat(threading.Thread):
 
     quantiles = [.50, .75, .90, .99]
 
-    def __init__(self, prefix, host, port=2003, use_udp=False, interval=10):
+    def __init__(self, prefix, host, port=2003, use_udp=False, interval=10, delay=None):
+
         super(Stat, self).__init__()
+
         self.prefix = prefix
         self.host = host
         self.port = port
         self.use_udp = use_udp
+        self.delay = delay or interval
+
         self.daemon = True
         self.eof = threading.Event()
         self.interval = interval
         self.lock = threading.Lock()
         self.buffers = defaultdict(list)
-        self.delay = {}
+        self.delays = {}
         self.output = None
 
     def connect(self):
@@ -61,13 +65,13 @@ class Stat(threading.Thread):
         self.output = s.makefile('w')
 
     def hit(self, row):
+        if row['status'] == 0:
+            # ignore non-http connections
+            return
+        ts = self.timestamp(row['@timestamp'])
+        d = {k: v for k, v in row.items() if k in self.fields}
         with self.lock:
-            if row['status'] == 0:
-                # ignore non-http connections
-                return
-            ts = self.timestamp(row['@timestamp'])
-            self.delay[ts] = time() + self.interval
-            d = {k: v for k, v in row.items() if k in self.fields}
+            self.delays[ts] = time() + self.interval * 2
             self.buffers[ts].append(d)
 
     def timestamp(self, dt):
@@ -81,11 +85,11 @@ class Stat(threading.Thread):
 
     def get_ready_buffers(self):
         ready = {}
+        current_time = time()
         with self.lock:
-            current_time = time()
-            for ts, delayed_to in list(self.delay.items()):
+            for ts, delayed_to in list(self.delays.items()):
                 if delayed_to > current_time:
-                    del self.delay[ts]
+                    del self.delays[ts]
                     ready[ts] = self.buffers.pop(ts)
         return ready
 
