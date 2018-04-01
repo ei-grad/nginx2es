@@ -5,23 +5,6 @@ import os
 from inotify_simple import INotify, flags
 
 
-def yield_until_eof(f):
-    stat = os.stat(f.fileno())
-    while True:
-        pos = f.tell()
-        if pos == stat.st_size:
-            break
-        line = f.readline()
-        if line:
-            # only a part of the line is written to file
-            if line[-1] != '\n':
-                # restore previous position (before readline)
-                f.seek(pos)
-                # exit
-                break
-            yield line
-
-
 class Watcher(object):
 
     def __init__(self, filename, from_start=False, teardown_timeout=10.):
@@ -30,8 +13,10 @@ class Watcher(object):
         self.teardown_timeout = teardown_timeout
         self.inotify = INotify()
         self.inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
+        self.remainder = ''
 
     def __iter__(self):
+        self.remainder = ''
         while True:
             with open(self.filename, errors='replace') as f:
                 try:
@@ -43,20 +28,46 @@ class Watcher(object):
                     raise
 
     def watch(self, f):
+
         # rewind to end of the file if needed
         if not self.from_start:
             f.seek(0, os.SEEK_END)
             # new files should always be readed from start
             self.from_start = True
+
         # read current contents of file
-        for i in yield_until_eof(f):
+        for i in self.yield_until_eof(f):
             yield i
+
         for i in self.yield_until_moved(f):
             yield i
+
         # wait some time for nginx processes to flush logs to current file
         sleep(self.teardown_timeout)
-        for i in yield_until_eof(f):
+        for i in self.yield_until_eof(f):
             yield i
+
+    def yield_until_eof(self, f):
+
+        if self.remainder:
+            self.remainder += f.readline()
+            if self.remainder[-1] == '\n':
+                line, self.remainder = self.remainder, ''
+                yield line
+            else:
+                raise StopIteration()
+
+        while True:
+            line = f.readline()
+            if not line:
+                # got to the end of file
+                break
+            elif line[-1] != '\n':
+                # got to the end of file, but the last line is truncated
+                self.remainder = line
+                break
+            else:
+                yield line
 
     def yield_until_moved(self, f):
         moved = False
@@ -67,7 +78,7 @@ class Watcher(object):
                     logging.info('file has been moved')
                     moved = True
                 elif event.mask & flags.MODIFY:
-                    for i in yield_until_eof(f):
+                    for i in self.yield_until_eof(f):
                         yield i
                 else:
                     raise Exception("Shouldn't happen")
