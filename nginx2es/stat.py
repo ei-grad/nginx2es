@@ -19,6 +19,8 @@ class Stat(threading.Thread):
         'request_time', 'upstream_response_time', 'bytes_sent',
     ])
 
+    quantiles = [.50, .75, .90, .99]
+
     def __init__(self, prefix, host, port=2003, use_udp=False, interval=10):
         super(Stat, self).__init__()
         self.prefix = prefix
@@ -189,20 +191,18 @@ class Stat(threading.Thread):
         # Instead, the approximation of different request paths percentiles
         # should be calculated from the histograms (there is a handy
         # quantileExactWeighted() function in clickhouse for that).
-        g = df.groupby('host')
-
-        q = [.50, .75, .90, .99]
 
         # request_time percentiles
-        for dims, value in g.request_time.quantile(q).items():
+        g = df.groupby('host')
+        for (host, p), value in g.request_time.quantile(self.quantiles).items():
             yield self.metric_name('request_time', 'percentiles',
-                                   dims[:-1], 'p%d' % (dims[-1] * 100)), value
+                                   host, 'p%d' % (p * 100)), value
 
         g = df[~df.upstream_response_time.isna()].groupby('host')
         # upstream_response_time percentiles
-        for dims, value in g.upstream_response_time.quantile(q).items():
+        for (host, p), value in g.upstream_response_time.quantile(self.quantiles).items():
             yield self.metric_name('upstream_response_time', 'percentiles',
-                                   dims[:-1], 'p%d' % (dims[-1] * 100)), value
+                                   host, 'p%d' % (p * 100)), value
 
     def metric_name(self, *args):
         parts = self.prefix.split('.')
