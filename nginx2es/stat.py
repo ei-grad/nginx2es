@@ -148,22 +148,11 @@ class Stat(threading.Thread):
         df['upstream_response_time'] = df.upstream_response_time.map(
             lambda x: x[-1] if isinstance(x, list) else x)
 
-        # these histograms could be used to specify colors or calculate
-        # aggregatable percentiles approximation
-        df['request_time_interval'] = self.log10_bins(df['request_time'])
-        df['upstream_response_time_interval'] = self.log10_bins(df['upstream_response_time'])
-
-        # request counts
-        for dims, value in df.groupby([
-                'host', 'request_path_1', 'request_path_2', 'status',
-                'upstream_cache_status',
-                'request_time_interval', 'upstream_response_time_interval'
-        ]).size().items():
-            yield self.metric_name('count', dims), value
-
         # request time sum / count
+        df['request_time_interval'] = self.log10_bins(df.request_time)
         g = df.groupby([
                 'host', 'request_path_1', 'request_path_2', 'status',
+                'upstream_cache_status', 'request_time_interval'
         ]).request_time
         for dims, value in g.sum().items():
             yield self.metric_name('request_time', 'sum', dims), value
@@ -171,8 +160,12 @@ class Stat(threading.Thread):
             yield self.metric_name('request_time', 'count', dims), value
 
         # upstream response time sum / count
+        df['upstream_response_time_interval'] = self.log10_bins(
+            df[~df.upstream_response_time.isna()].upstream_response_time
+        )
         g = df[~df.upstream_response_time.isna()].groupby([
                 'host', 'request_path_1', 'request_path_2', 'status',
+                'upstream_response_time_interval'
         ]).upstream_response_time
         for dims, value in g.sum().items():
             yield self.metric_name('upstream_response_time', 'sum', dims), value
