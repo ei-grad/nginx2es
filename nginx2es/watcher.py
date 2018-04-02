@@ -11,17 +11,17 @@ class Watcher(object):
         self.filename = filename
         self.from_start = from_start
         self.teardown_timeout = teardown_timeout
-        self.inotify = INotify()
-        self.inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
         self.remainder = ''
 
     def __iter__(self):
         self.remainder = ''
         while True:
             with open(self.filename, errors='replace') as f:
-                yield from self.watch(f)
+                with INotify() as inotify:
+                    inotify.add_watch(self.filename, flags.MODIFY | flags.MOVE_SELF)
+                    yield from self.watch(f, inotify)
 
-    def watch(self, f):
+    def watch(self, f, inotify):
 
         if self.from_start:
             # read current contents of file
@@ -33,7 +33,7 @@ class Watcher(object):
             self.from_start = True
 
         # loop over inotify events until file would be moved
-        yield from self.yield_until_moved(f)
+        yield from self.yield_until_moved(f, inotify)
 
         # wait some time for nginx processes to flush logs to current file
         sleep(self.teardown_timeout)
@@ -63,13 +63,13 @@ class Watcher(object):
             else:
                 yield line
 
-    def yield_until_moved(self, f):
+    def yield_until_moved(self, f, inotify):
         moved = False
         while not moved:
-            events = self.inotify.read()
+            events = inotify.read()
             for event in events:
                 if event.mask & flags.MOVE_SELF:
-                    logging.info('file has been moved')
+                    logging.info('file has been moved %s', event)
                     moved = True
                 elif event.mask & flags.MODIFY:
                     yield from self.yield_until_eof(f)
