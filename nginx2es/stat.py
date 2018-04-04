@@ -1,11 +1,17 @@
-from time import time
 from collections import defaultdict
+from time import time
 import logging
-import threading
+import re
 import socket
+import threading
 
 import numpy as np
 import pandas
+
+
+uuid_regex = re.compile(
+    '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}'
+)
 
 
 class Stat(threading.Thread):
@@ -128,13 +134,13 @@ class Stat(threading.Thread):
 
         if 'request_path_1' not in df:
             df['request_path_1'] = '#'
-
         df['request_path_1'].fillna('#', inplace=True)
+        df['request_path_1'].replace(uuid_regex, '<uuid>', inplace=True)
 
         if 'request_path_2' not in df:
             df['request_path_2'] = '#'
-
         df['request_path_2'].fillna('#', inplace=True)
+        df['request_path_2'].replace(uuid_regex, '<uuid>', inplace=True)
 
         if 'upstream_cache_status' not in df:
             df['upstream_cache_status'] = 'NONE'
