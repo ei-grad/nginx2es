@@ -47,6 +47,7 @@ DEFAULT_TEMPLATE = {
                 "remote_addr": {"type": "ip"},
                 "geoip": {"type": "geo_point"},
                 "query_geo": {"type": "geo_point"},
+                "status": {"type": "long"},
                 "request": {
                     "type": "text",
                     "fields": {
