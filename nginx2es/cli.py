@@ -5,8 +5,9 @@ import json
 import logging
 import socket
 import sys
+from configparser import RawConfigParser
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, ConnectionError
 
 import entrypoints
 import click
@@ -24,10 +25,7 @@ def geoip_error(msg):
 
 def load_geoip(geoip):
 
-    explicit = False
-    for i in sys.argv:
-        if i == '--geoip' or i.startswith('--geoip='):
-            explicit = True
+    explicit = passed_in_cli('geoip') or passed_in_config('geoip')
 
     try:
         import GeoIP
@@ -83,8 +81,42 @@ def load_extensions(extensions):
     return ret
 
 
+def passed_in_cli(argname):
+    cli_param = '--' + argname.replace('_', '-')
+    return cli_param in sys.argv
+
+
+def passed_in_config(argname):
+    rev_config_map = {v: k for k, v in CONFIG_MAP.items()}
+    if argname not in rev_config_map:
+        return False
+    try:
+        pos = sys.argv.index('--config')
+    except ValueError:
+        return False
+    if len(sys.argv) <= pos + 1:
+        return False
+    config = sys.argv[pos+1]
+    parser = RawConfigParser()
+    parser.read([config])
+    return parser.has_option(*rev_config_map[argname])
+
+
+CONFIG_MAP = {
+    ('elasticsearch', 'address'): 'elastic',
+    ('elasticsearch', 'timeout'): 'timeout',
+    ('sentry', 'dsn'): 'sentry',
+    ('carbon', 'address'): 'carbon',
+    ('carbon', 'interval'): 'carbon_interval',
+    ('geoip', 'filename'): 'geoip',
+}
+
+
 @click.command()
 @click.argument('filename', default='/var/log/nginx/access.log')
+@click.option(
+    '--config',
+    help='config file name')
 @click.option(
     '--chunk-size',
     default=500,
@@ -153,9 +185,10 @@ def load_extensions(extensions):
     help="sentry dsn")
 @click.option(
     '--stdout', is_flag=True, help="output to stdout instead of elasticsearch")
-@click.option('--log-level', default="INFO", help="log level")
+@click.option('--log-level', default="error", help="log level")
 def main(
         filename,
+        config,
         chunk_size,
         elastic,
         force_create_template,
@@ -180,6 +213,15 @@ def main(
 
     logging.basicConfig(level=log_level.upper(), format='%(asctime)s %(levelname)s %(message)s')
 
+    if config is not None:
+        parser = RawConfigParser()
+        parser.read([config])
+        for section in parser.sections():
+            for key, value in parser.items(section):
+                argname = CONFIG_MAP.get((section, key))
+                if argname is not None and not passed_in_cli(argname):
+                    locals()[argname] = value
+
     if sentry:
         import raven
         import raven.conf
@@ -188,8 +230,6 @@ def main(
         sentry_handler = raven.handlers.logging.SentryHandler(sentry)
         sentry_handler.setLevel(logging.ERROR)
         raven.conf.setup_logging(sentry_handler)
-
-    logging.debug('elasticsearch: %s', elastic)
 
     es = Elasticsearch(elastic, timeout=timeout)
 
@@ -231,7 +271,11 @@ def main(
     if stdout:
         run = nginx2es.stdout
     else:
-        check_template(es, template_name, template, force_create_template)
+        try:
+            check_template(es, template_name, template, force_create_template)
+        except ConnectionError as e:
+            logging.error("can't connect to elasticsearch")
+            sys.exit(1)
         run = nginx2es.run
 
     if filename == '-':

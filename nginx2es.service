@@ -1,0 +1,14 @@
+[Unit]
+Description=Put nginx logs to Elasticsearch and send stats to carbon
+After=nginx.service
+
+[Service]
+Type=simple
+User=nginx
+Group=nginx
+
+ExecStart=/usr/bin/nginx2es --config /etc/nginx2es.conf
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
