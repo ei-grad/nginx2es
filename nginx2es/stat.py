@@ -94,7 +94,7 @@ class Stat(threading.Thread):
         current_time = time()
         with self.lock:
             for ts, delayed_to in list(self.delays.items()):
-                if delayed_to > current_time:
+                if delayed_to < current_time:
                     del self.delays[ts]
                     ready[ts] = self.buffers.pop(ts)
         return ready
