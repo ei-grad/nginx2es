@@ -57,11 +57,7 @@ def load_geoip(geoip, explicit):
 
 def check_template(es, name, template, force):
     if force or not es.indices.exists_template(name):
-        if template is None:
-            template = DEFAULT_TEMPLATE
-        else:
-            template = json.load(open(template))
-        es.indices.put_template(name, DEFAULT_TEMPLATE)
+        es.indices.put_template(name, template)
 
 
 def load_extensions(extensions):
@@ -82,20 +78,28 @@ def load_extensions(extensions):
     return ret
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--config", action=LoadConfigAction)
-parser.add_argument("--gen-config", action=GenConfigAction)
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+parser.add_argument("--config",
+                    default='nginx2es.conf.example',
+                    action=LoadConfigAction)
+parser.add_argument("--gen-config",
+                    default=argparse.SUPPRESS,
+                    action=GenConfigAction)
 parser.add_argument("filename", nargs="?", default="/var/log/nginx/access.json")
 parser.add_argument("--chunk-size", type=int, default=500, help="chunk size for bulk requests")
 parser.add_argument("--elastic", action="append",
+                    default=argparse.SUPPRESS,
                     help="elasticsearch cluster address")
 parser.add_argument("--min-timestamp",
-                    help="skip records with timestamp less than specified")
+                    default=argparse.SUPPRESS,
+                    help="skip records with timestamp before the specified")
 parser.add_argument("--max-timestamp",
-                    help="skip records with timestamp more than specified")
-parser.add_argument("--force-create-template", action="store_true",
-                    help="force create index template")
-parser.add_argument("--geoip", help="GeoIP database file path")
+                    default=argparse.SUPPRESS,
+                    help="skip records with timestamp after the specified")
+parser.add_argument("--geoip", default=argparse.SUPPRESS,
+                    help="GeoIP database file path")
 parser.add_argument("--hostname", default=socket.gethostname(),
                     help="override hostname to add to documents")
 parser.add_argument("--index", default="nginx-%Y.%m.%d",
@@ -113,22 +117,30 @@ parser.add_argument("--mode", default="tail",
                     help="records read mode")
 parser.add_argument("--ext", default=[], action="append",
                     help="add post-processing extension")
-parser.add_argument("--template", help="index template filename")
+parser.add_argument("--template",
+                    default=argparse.SUPPRESS,
+                    help="index template filename")
 parser.add_argument("--template-name", default="nginx",
                     help="template name to use for index template")
-parser.add_argument("--carbon", help="carbon host:port to send http stats")
+parser.add_argument("--force-create-template", action="store_true",
+                    help="force create index template")
+parser.add_argument("--carbon",
+                    default=argparse.SUPPRESS,
+                    help="carbon host:port to send http stats")
 parser.add_argument("--carbon-interval", default=10, type=int,
                     help="carbon host:port to send http stats")
 parser.add_argument(
     "--carbon-delay", default=5., type=float,
-    help="specify number of seconds to delay the stat calculation and delivery")
+    help="number of seconds to delay the stat calculation and delivery")
 parser.add_argument("--carbon-prefix",
-                    help="carbon metrics prefix (default: nginx2es.$hostname")
+                    default=argparse.SUPPRESS,
+                    help="carbon metrics prefix (default: nginx2es.$hostname)")
 parser.add_argument("--timeout", type=int, default=30,
                     help="elasticsearch request timeout")
-parser.add_argument("--sentry", help="sentry dsn")
+parser.add_argument("--sentry", default=argparse.SUPPRESS, help="sentry dsn")
 parser.add_argument("--stdout", action="store_true",
-                    help="output to stdout instead of elasticsearch")
+                    help="don't send anything to Elasticsearch or carbon, "
+                         "just output to stdout")
 parser.add_argument("--log-format",
                     default="%(asctime)s %(levelname)s %(message)s",
                     help="log format")
@@ -141,7 +153,7 @@ def main():
 
     logging.basicConfig(level=args.log_level.upper(), format='%(asctime)s %(levelname)s %(message)s')
 
-    if args.sentry is not None:
+    if 'sentry' in args:
         import raven
         import raven.conf
         import raven.handlers.logging
@@ -151,59 +163,71 @@ def main():
         raven.conf.setup_logging(sentry_handler)
 
     es_kwargs = {'timeout': args.timeout}
-    if args.elastic:
+    if 'elastic' in args:
         es_kwargs['hosts'] = args.elastic
-    if args.min_timestamp:
-        es_kwargs['min_timestamp'] = dateutil.parser.parse(args.min_timestamp)
-    if args.max_timestamp:
-        es_kwargs['max_timestamp'] = dateutil.parser.parse(args.max_timestamp)
     es = Elasticsearch(**es_kwargs)
 
-    if args.geoip is None:
-        explicit_geoip = False
-        args.geoip = "/usr/share/GeoIP/GeoIPCity.dat"
-    else:
-        explicit_geoip = True
-    geoip = load_geoip(args.geoip, explicit_geoip)
+    geoip = load_geoip(
+        args.geoip if 'geoip' in args else "/usr/share/GeoIP/GeoIPCity.dat",
+        'geoip' in args
+    )
 
-    access_log_parser = AccessLogParser(
+    nginx2es_kwargs = {
+        "es": es,
+        "index": args.index,
+        "chunk_size": args.chunk_size,
+        "max_retries": args.max_retries,
+        "max_delay": args.max_delay,
+    }
+
+    nginx2es_kwargs['parser'] = AccessLogParser(
         args.hostname, geoip=geoip, extensions=load_extensions(args.ext),
     )
 
-    if args.carbon:
+    if 'carbon' in args:
+
         from nginx2es.stat import Stat
-        if args.carbon_prefix is None:
-            carbon_prefix = 'nginx2es.%s' % args.hostname
+
         stat_kwargs = {
-            'prefix': carbon_prefix,
             'interval': args.carbon_interval,
+            'delay': args.carbon_delay,
         }
+        if 'carbon_prefix' in args:
+            stat_kwargs['prefix'] = args.carbon_prefix
+        else:
+            stat_kwargs['prefix'] = 'nginx2es.%s' % args.hostname
         if ':' in args.carbon:
             args.carbon, carbon_port = args.carbon.split(':')
             stat_kwargs['port'] = int(carbon_port)
         stat_kwargs['host'] = args.carbon
-        if args.carbon_delay:
-            stat_kwargs['delay'] = args.carbon_delay
+
         stat = Stat(**stat_kwargs)
+
         if args.stdout:
             stat.output = sys.stdout
         else:
             stat.connect()
-        stat.start()
-    else:
-        stat = None
 
-    nginx2es = Nginx2ES(es, access_log_parser, args.index,
-                        stat=stat,
-                        chunk_size=args.chunk_size,
-                        max_retries=args.max_retries,
-                        max_delay=args.max_delay)
+        stat.start()
+
+        nginx2es_kwargs['stat'] = stat
+
+    if 'min_timestamp' in args:
+        nginx2es_kwargs['min_timestamp'] = dateutil.parser.parse(args.min_timestamp)
+    if 'max_timestamp' in args:
+        nginx2es_kwargs['max_timestamp'] = dateutil.parser.parse(args.max_timestamp)
+
+    nginx2es = Nginx2ES(**nginx2es_kwargs)
 
     if args.stdout:
         run = nginx2es.stdout
     else:
+        if 'template' in args:
+            template = json.load(open(args.template))
+        else:
+            template = DEFAULT_TEMPLATE
         try:
-            check_template(es, args.template_name, args.template, args.force_create_template)
+            check_template(es, args.template_name, template, args.force_create_template)
         except ConnectionError as e:
             logging.error("can't connect to elasticsearch")
             sys.exit(1)
