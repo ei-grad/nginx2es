@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, deque
 from time import time
 import logging
 import re
@@ -58,6 +58,7 @@ class Stat(threading.Thread):
         self.buffers = defaultdict(list)
         self.last_seen = {}
         self.output = None
+        self.last_sent = deque()
 
     def connect(self):
         if self.output is not None:
@@ -121,7 +122,19 @@ class Stat(threading.Thread):
         return ready
 
     def process(self, buffers):
+
         for ts, rows in buffers.items():
+
+            if ts in self.last_sent:
+                logging.error("the partial statistics for %s was sent, ignoring "
+                              "%s remaining records, "
+                              "stat delay interval should be increased",
+                              ts, len(rows))
+                continue
+            self.last_sent.append(ts)
+            if len(self.last_sent) > 100:
+                self.last_sent.popleft()
+
             try:
                 try:
                     self.send_metrics(self.metrics(rows), ts)
