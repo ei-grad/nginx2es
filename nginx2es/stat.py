@@ -100,7 +100,7 @@ class Stat(threading.Thread):
         return int(ts - ts % self.interval)
 
     def run(self):
-        while not self.eof.wait(self.interval - time() % self.interval):
+        while not self.eof.wait(1.):
             self.process(self.get_ready_buffers())
         self.process(self.buffers)
 
