@@ -112,15 +112,7 @@ class Nginx2ES(object):
         filler_thread.join()
         flusher_thread.join()
 
-        if self.stat is not None:
-            self.stat.eof.set()
-            self.stat.join()
-
     def stdout(self, file):
         s = JSONSerializer()
         for i in self.gen(file):
             print(s.dumps(i))
-
-        if self.stat is not None:
-            self.stat.eof.set()
-            self.stat.join()

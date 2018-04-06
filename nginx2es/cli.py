@@ -214,6 +214,9 @@ def main():
 
         nginx2es_kwargs['stat'] = stat
 
+    else:
+        stat = None
+
     if 'min_timestamp' in args:
         nginx2es_kwargs['min_timestamp'] = dateutil.parser.parse(args.min_timestamp)
     if 'max_timestamp' in args:
@@ -255,7 +258,14 @@ def main():
             from_start = (args.mode == 'from-start')
             run(Watcher(args.filename, from_start))
     except (KeyboardInterrupt, BrokenPipeError):
+        if stat is not None:
+            stat.eof.set()
+            stat.join()
         sys.exit(1)
+    else:
+        if stat is not None:
+            stat.eof.set()
+            stat.join()
 
 
 if __name__ == "__main__":
