@@ -16,14 +16,14 @@ uuid_regex = re.compile(
 
 class Stat(threading.Thread):
 
-    fields = set([
+    columns = [
         # dimensions
-        'status',
         'host', 'request_path_1', 'request_path_2',
-        'upstream_cache_status',
+        'upstream_cache_status', 'status',
         # metrics
         'request_time', 'upstream_response_time', 'bytes_sent',
-    ])
+    ]
+    columns_set = set(columns)
 
     quantiles = [.50, .75, .90, .99]
 
@@ -90,7 +90,7 @@ class Stat(threading.Thread):
             # ignore non-http connections
             return
         ts = self.timestamp(row['@timestamp'])
-        d = {k: v for k, v in row.items() if k in self.fields}
+        d = {k: v for k, v in row.items() if k in self.columns_set}
         with self.lock:
             self.last_seen[ts] = time()
             self.buffers[ts].append(d)
@@ -168,25 +168,12 @@ class Stat(threading.Thread):
         if not rows:
             return
 
-        df = pd.DataFrame.from_records(rows)
-
-        if 'request_path_1' not in df:
-            df['request_path_1'] = '#'
+        df = pd.DataFrame.from_records(rows, columns=self.columns)
         df['request_path_1'].fillna('#', inplace=True)
         df['request_path_1'].replace(uuid_regex, '<uuid>', inplace=True)
-
-        if 'request_path_2' not in df:
-            df['request_path_2'] = '#'
         df['request_path_2'].fillna('#', inplace=True)
         df['request_path_2'].replace(uuid_regex, '<uuid>', inplace=True)
-
-        if 'upstream_cache_status' not in df:
-            df['upstream_cache_status'] = 'NONE'
-
         df['upstream_cache_status'].fillna('NONE', inplace=True)
-
-        if 'upstream_response_time' not in df:
-            df['upstream_response_time'] = np.nan
 
         # upstream_response_time is a list (nginx could ask several upstreams
         # per single request if the first upstream fails), but I believe it
