@@ -1,4 +1,5 @@
 import logging
+import sys
 import threading
 
 from elasticsearch import JSONSerializer
@@ -115,4 +116,4 @@ class Nginx2ES(object):
     def stdout(self, file):
         s = JSONSerializer()
         for i in self.gen(file):
-            print(s.dumps(i))
+            sys.stdout.write(s.dumps(i) + '\n')
