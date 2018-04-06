@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
+import argparse
 import io
 import json
 import logging
 import socket
 import sys
-from configparser import RawConfigParser
+
+from arconfig import LoadConfigAction, GenConfigAction
 
 from elasticsearch import Elasticsearch, ConnectionError
 
 import entrypoints
-import click
 
 from .parser import AccessLogParser
 from .nginx2es import Nginx2ES
@@ -23,9 +24,7 @@ def geoip_error(msg):
     sys.exit(1)
 
 
-def load_geoip(geoip):
-
-    explicit = passed_in_cli('geoip') or passed_in_config('geoip')
+def load_geoip(geoip, explicit):
 
     try:
         import GeoIP
@@ -72,7 +71,7 @@ def load_extensions(extensions):
             ext = entrypoints.get_single(
                 "nginx2es.ext", ext_name)
         except entrypoints.NoSuchEntryPoint:
-            raise click.BadParameter(
+            raise ValueError(
                 "%s not found in \"nginx2es.ext\" "
                 "entrypoints" % ext_name
             )
@@ -81,180 +80,101 @@ def load_extensions(extensions):
     return ret
 
 
-def passed_in_cli(argname):
-    cli_param = '--' + argname.replace('_', '-')
-    return cli_param in sys.argv
-
-
-def passed_in_config(argname):
-    rev_config_map = {v: k for k, v in CONFIG_MAP.items()}
-    if argname not in rev_config_map:
-        return False
-    try:
-        pos = sys.argv.index('--config')
-    except ValueError:
-        return False
-    if len(sys.argv) <= pos + 1:
-        return False
-    config = sys.argv[pos+1]
-    parser = RawConfigParser()
-    parser.read([config])
-    return parser.has_option(*rev_config_map[argname])
-
-
-CONFIG_MAP = {
-    ('elasticsearch', 'address'): 'elastic',
-    ('elasticsearch', 'timeout'): 'timeout',
-    ('sentry', 'dsn'): 'sentry',
-    ('carbon', 'address'): 'carbon',
-    ('carbon', 'interval'): 'carbon_interval',
-    ('geoip', 'filename'): 'geoip',
-}
-
-
-@click.command()
-@click.argument('filename', default='/var/log/nginx/access.log')
-@click.option(
-    '--config',
-    help='config file name')
-@click.option(
-    '--chunk-size',
-    default=500,
-    help='chunk size for bulk requests')
-@click.option(
-    '--elastic', default=['localhost:9200'],
-    multiple=True,
-    help="elasticsearch cluster address")
-@click.option(
-    '--force-create-template',
-    is_flag=True,
-    help="force create index template")
-@click.option(
-    '--geoip',
-    default="/usr/share/GeoIP/GeoIPCity.dat",
-    help="GeoIP database file path")
-@click.option(
-    '--hostname',
-    default=socket.gethostname(),
-    help="override hostname to add to documents")
-@click.option(
-    '--index',
-    default='nginx-%Y.%m.%d',
-    help="index name strftime pattern")
-@click.option(
-    '--max-delay', default=10.,
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", action=LoadConfigAction)
+parser.add_argument("--gen-config", action=GenConfigAction)
+parser.add_argument("filename", nargs="?", default="/var/log/nginx/access.json")
+parser.add_argument("--chunk-size", type=int, default=500, help="chunk size for bulk requests")
+parser.add_argument("--elastic", action="append",
+                    help="elasticsearch cluster address")
+parser.add_argument("--force-create-template", action="store_true",
+                    help="force create index template")
+parser.add_argument("--geoip", help="GeoIP database file path")
+parser.add_argument("--hostname", default=socket.gethostname(),
+                    help="override hostname to add to documents")
+parser.add_argument("--index", default="nginx-%Y.%m.%d",
+                    help="index name strftime pattern")
+parser.add_argument(
+    "--max-delay", default=10., type=int,
     help="maximum time to wait before flush if count of records in buffer is "
          "less than chunk-size")
-@click.option(
-    '--max-retries', default=3,
+parser.add_argument(
+    "--max-retries", default=3, type=int,
     help="maximum number of times a document will be retried when 429 is "
          "received, set to 0 for no retries on 429")
-@click.option(
-    '--mode',
-    default='tail',
-    type=click.Choice(['tail', 'from-start', 'one-shot']),
-    help="records read mode")
-@click.option(
-    '--ext', multiple=True,
-    help="add post-processing extension")
-@click.option('--template', help="index template filename")
-@click.option(
-    '--template-name',
-    default='nginx',
-    help="template name to use for index template")
-@click.option(
-    '--carbon',
-    help="carbon host:port to send http stats")
-@click.option(
-    '--carbon-interval',
-    default=10,
-    help="carbon host:port to send http stats")
-@click.option(
-    '--carbon-delay',
-    type=int,
-    help="stats delay (defaults to interval)")
-@click.option(
-    '--carbon-prefix',
-    help="carbon metrics prefix (default: 'nginx2es.$hostname'")
-@click.option(
-    '--timeout',
-    default=30,
-    help="elasticsearch request timeout")
-@click.option(
-    '--sentry',
-    help="sentry dsn")
-@click.option(
-    '--stdout', is_flag=True, help="output to stdout instead of elasticsearch")
-@click.option('--log-level', default="error", help="log level")
-def main(
-        filename,
-        config,
-        chunk_size,
-        elastic,
-        force_create_template,
-        geoip,
-        hostname,
-        index,
-        max_delay,
-        max_retries,
-        mode,
-        ext,
-        template,
-        template_name,
-        carbon,
-        carbon_interval,
-        carbon_delay,
-        carbon_prefix,
-        timeout,
-        sentry,
-        stdout,
-        log_level,
-):
+parser.add_argument("--mode", default="tail",
+                    choices=["tail", "from-start", "one-shot"],
+                    help="records read mode")
+parser.add_argument("--ext", default=[], action="append",
+                    help="add post-processing extension")
+parser.add_argument("--template", help="index template filename")
+parser.add_argument("--template-name", default="nginx",
+                    help="template name to use for index template")
+parser.add_argument("--carbon", help="carbon host:port to send http stats")
+parser.add_argument("--carbon-interval", default=10, type=int,
+                    help="carbon host:port to send http stats")
+parser.add_argument("--carbon-delay", default=None, type=int,
+                    help="stats delay (defaults to interval)")
+parser.add_argument("--carbon-prefix",
+                    help="carbon metrics prefix (default: nginx2es.$hostname")
+parser.add_argument("--timeout", type=int, default=30,
+                    help="elasticsearch request timeout")
+parser.add_argument("--sentry", help="sentry dsn")
+parser.add_argument("--stdout", action="store_true",
+                    help="output to stdout instead of elasticsearch")
+parser.add_argument("--log-format",
+                    default="%(asctime)s %(levelname)s %(message)s",
+                    help="log format")
+parser.add_argument("--log-level", default="error", help="log level")
 
-    logging.basicConfig(level=log_level.upper(), format='%(asctime)s %(levelname)s %(message)s')
 
-    if config is not None:
-        parser = RawConfigParser()
-        parser.read([config])
-        for section in parser.sections():
-            for key, value in parser.items(section):
-                argname = CONFIG_MAP.get((section, key))
-                if argname is not None and not passed_in_cli(argname):
-                    locals()[argname] = value
+def main():
 
-    if sentry:
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.log_level.upper(), format='%(asctime)s %(levelname)s %(message)s')
+
+    if args.sentry is not None:
         import raven
         import raven.conf
         import raven.handlers.logging
-        sentry = raven.Client(sentry)
+        sentry = raven.Client(args.sentry)
         sentry_handler = raven.handlers.logging.SentryHandler(sentry)
         sentry_handler.setLevel(logging.ERROR)
         raven.conf.setup_logging(sentry_handler)
 
-    es = Elasticsearch(elastic, timeout=timeout)
+    es_kwargs = {'timeout': args.timeout}
+    if args.elastic:
+        es_kwargs['hosts'] = args.elastic
+    es = Elasticsearch(**es_kwargs)
 
-    geoip = load_geoip(geoip)
+    if args.geoip is None:
+        explicit_geoip = False
+        args.geoip = "/usr/share/GeoIP/GeoIPCity.dat"
+    else:
+        explicit_geoip = True
+    geoip = load_geoip(args.geoip, explicit_geoip)
 
     access_log_parser = AccessLogParser(
-        hostname, geoip=geoip, extensions=load_extensions(ext),
+        args.hostname, geoip=geoip, extensions=load_extensions(args.ext),
     )
 
-    if carbon:
+    if args.carbon:
         from nginx2es.stat import Stat
-        if carbon_prefix is None:
-            carbon_prefix = 'nginx2es.%s' % hostname
+        if args.carbon_prefix is None:
+            carbon_prefix = 'nginx2es.%s' % args.hostname
         stat_kwargs = {
             'prefix': carbon_prefix,
-            'interval': carbon_interval,
+            'interval': args.carbon_interval,
         }
-        if ':' in carbon:
-            carbon, carbon_port = carbon.split(':')
+        if ':' in args.carbon:
+            args.carbon, carbon_port = args.carbon.split(':')
             stat_kwargs['port'] = int(carbon_port)
-        stat_kwargs['host'] = carbon
-        if carbon_delay:
-            stat_kwargs['delay'] = carbon_delay
+        stat_kwargs['host'] = args.carbon
+        if args.carbon_delay:
+            stat_kwargs['delay'] = args.carbon_delay
         stat = Stat(**stat_kwargs)
-        if stdout:
+        if args.stdout:
             stat.output = sys.stdout
         else:
             stat.connect()
@@ -262,37 +182,37 @@ def main(
     else:
         stat = None
 
-    nginx2es = Nginx2ES(es, access_log_parser, index,
+    nginx2es = Nginx2ES(es, access_log_parser, args.index,
                         stat=stat,
-                        chunk_size=chunk_size,
-                        max_retries=max_retries,
-                        max_delay=max_delay)
+                        chunk_size=args.chunk_size,
+                        max_retries=args.max_retries,
+                        max_delay=args.max_delay)
 
-    if stdout:
+    if args.stdout:
         run = nginx2es.stdout
     else:
         try:
-            check_template(es, template_name, template, force_create_template)
+            check_template(es, args.template_name, args.template, args.force_create_template)
         except ConnectionError as e:
             logging.error("can't connect to elasticsearch")
             sys.exit(1)
         run = nginx2es.run
 
-    if filename == '-':
+    if args.filename == '-':
         f = io.TextIOWrapper(sys.stdin.buffer, errors='replace')
     else:
-        f = open(filename, errors='replace')
+        f = open(args.filename, errors='replace')
 
     if not f.seekable():
         if '--mode' in sys.argv:
             logging.warning("using --mode argument while reading from stream is incorrect")
         run(f)
-    elif mode == 'one-shot':
+    elif args.mode == 'one-shot':
         run(f)
     else:
         f.close()
-        from_start = (mode == 'from-start')
-        run(Watcher(filename, from_start))
+        from_start = (args.mode == 'from-start')
+        run(Watcher(args.filename, from_start))
 
 
 if __name__ == "__main__":
