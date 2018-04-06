@@ -238,16 +238,19 @@ def main():
     else:
         f = open(args.filename, errors='replace')
 
-    if not f.seekable():
-        if '--mode' in sys.argv:
-            logging.warning("using --mode argument while reading from stream is incorrect")
-        run(f)
-    elif args.mode == 'one-shot':
-        run(f)
-    else:
-        f.close()
-        from_start = (args.mode == 'from-start')
-        run(Watcher(args.filename, from_start))
+    try:
+        if not f.seekable():
+            if '--mode' in sys.argv:
+                logging.warning("using --mode argument while reading from stream is incorrect")
+            run(f)
+        elif args.mode == 'one-shot':
+            run(f)
+        else:
+            f.close()
+            from_start = (args.mode == 'from-start')
+            run(Watcher(args.filename, from_start))
+    except (KeyboardInterrupt, BrokenPipeError):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

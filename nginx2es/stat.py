@@ -142,6 +142,9 @@ class Stat(threading.Thread):
                     # retry on network error
                     self.connect()
                     self.send_metrics(self.metrics(rows), ts)
+            except (KeyboardInterrupt, BrokenPipeError):
+                self.eof.set()
+                return
             except:
                 logging.error("can't send metrics", exc_info=True)
 
