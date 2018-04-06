@@ -6,7 +6,7 @@ import socket
 import threading
 
 import numpy as np
-import pandas
+import pandas as pd
 
 
 uuid_regex = re.compile(
@@ -168,7 +168,7 @@ class Stat(threading.Thread):
         if not rows:
             return
 
-        df = pandas.DataFrame.from_records(rows)
+        df = pd.DataFrame.from_records(rows)
 
         if 'request_path_1' not in df:
             df['request_path_1'] = '#'
@@ -209,9 +209,9 @@ class Stat(threading.Thread):
 
         # upstream response time sum / count
         df['upstream_response_time_interval'] = self.log10_bins(
-            df[~df.upstream_response_time.isna()].upstream_response_time
+            df[pd.notnull(df.upstream_response_time)].upstream_response_time
         )
-        g = df[~df.upstream_response_time.isna()].groupby([
+        g = df[pd.notnull(df.upstream_response_time)].groupby([
                 'host', 'request_path_1', 'request_path_2', 'status',
                 'upstream_response_time_interval'
         ]).upstream_response_time
@@ -239,7 +239,7 @@ class Stat(threading.Thread):
             yield self.metric_name('request_time', 'percentiles',
                                    host, 'p%d' % (p * 100)), value
 
-        g = df[~df.upstream_response_time.isna()].groupby('host')
+        g = df[pd.notnull(df.upstream_response_time)].groupby('host')
         # upstream_response_time percentiles
         for (host, p), value in g.upstream_response_time.quantile(self.quantiles).items():
             yield self.metric_name('upstream_response_time', 'percentiles',
