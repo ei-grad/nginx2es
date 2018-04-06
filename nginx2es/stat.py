@@ -13,6 +13,10 @@ uuid_regex = re.compile(
     '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}'
 )
 
+id_regex = re.compile(
+    '^[0-9]+$'
+)
+
 
 class Stat(threading.Thread):
 
@@ -171,8 +175,10 @@ class Stat(threading.Thread):
         df = pd.DataFrame.from_records(rows, columns=self.columns)
         df['request_path_1'].fillna('#', inplace=True)
         df['request_path_1'].replace(uuid_regex, '<uuid>', inplace=True)
+        df['request_path_1'].replace(id_regex, '<id>', inplace=True)
         df['request_path_2'].fillna('#', inplace=True)
         df['request_path_2'].replace(uuid_regex, '<uuid>', inplace=True)
+        df['request_path_2'].replace(id_regex, '<id>', inplace=True)
         df['upstream_cache_status'].fillna('NONE', inplace=True)
 
         # upstream_response_time is a list (nginx could ask several upstreams
