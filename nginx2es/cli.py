@@ -82,12 +82,14 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 parser.add_argument("--config",
-                    default='nginx2es.conf.example',
+                    default=argparse.SUPPRESS,
                     action=LoadConfigAction)
 parser.add_argument("--gen-config",
                     default=argparse.SUPPRESS,
                     action=GenConfigAction)
-parser.add_argument("filename", nargs="?", default="/var/log/nginx/access.json")
+parser.add_argument("filename", nargs="?",
+                    default=argparse.SUPPRESS,
+                    help="file to process (default: /var/log/nginx/access.json)")
 parser.add_argument("--chunk-size", type=int, default=500, help="chunk size for bulk requests")
 parser.add_argument("--elastic", action="append",
                     default=argparse.SUPPRESS,
@@ -232,6 +234,9 @@ def main():
             logging.error("can't connect to elasticsearch")
             sys.exit(1)
         run = nginx2es.run
+
+    if 'filename' not in args:
+        args.filename = '/var/log/nginx/access.json'
 
     if args.filename == '-':
         f = io.TextIOWrapper(sys.stdin.buffer, errors='replace')
