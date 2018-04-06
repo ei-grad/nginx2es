@@ -27,7 +27,21 @@ class Stat(threading.Thread):
 
     quantiles = [.50, .75, .90, .99]
 
-    def __init__(self, prefix, host, port=2003, use_udp=False, interval=10, delay=None):
+    def __init__(self, prefix, host, port=2003, use_udp=False, interval=10,
+                 delay=5.):
+        """Create new Stat instance
+
+        Stat() groups the HTTP requests by `interval` seconds and calculates an
+        HTTP traffic statistics. See metrics() method source code for the list
+        of metrics.
+
+        Statistics is sent by plaintext carbon protocol via TCP or UDP (UDP
+        mode present, but it is not tested, actually).
+
+        Stat calculation is delayed by `delay` seconds after the:
+        - end of data interval
+        - last data for this interval was seen
+        """
 
         super(Stat, self).__init__()
 
@@ -35,14 +49,14 @@ class Stat(threading.Thread):
         self.host = host
         self.port = port
         self.use_udp = use_udp
-        self.delay = delay or interval
+        self.delay = delay
 
         self.daemon = True
         self.eof = threading.Event()
         self.interval = interval
         self.lock = threading.Lock()
         self.buffers = defaultdict(list)
-        self.delays = {}
+        self.last_seen = {}
         self.output = None
 
     def connect(self):
@@ -77,7 +91,7 @@ class Stat(threading.Thread):
         ts = self.timestamp(row['@timestamp'])
         d = {k: v for k, v in row.items() if k in self.fields}
         with self.lock:
-            self.delays[ts] = time() + self.interval * 2
+            self.last_seen[ts] = time()
             self.buffers[ts].append(d)
 
     def timestamp(self, dt):
@@ -93,9 +107,16 @@ class Stat(threading.Thread):
         ready = {}
         current_time = time()
         with self.lock:
-            for ts, delayed_to in list(self.delays.items()):
-                if delayed_to < current_time:
-                    del self.delays[ts]
+            for ts, last_seen in list(self.last_seen.items()):
+                if ts + self.interval + self.delay > current_time:
+                    # delay seconds didn't pass after the data interval end
+                    continue
+                elif last_seen + self.delay > current_time:
+                    # last data for timestamp was delivered less than
+                    # self.delay seconds ago
+                    continue
+                else:
+                    del self.last_seen[ts]
                     ready[ts] = self.buffers.pop(ts)
         return ready
 

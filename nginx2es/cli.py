@@ -119,8 +119,9 @@ parser.add_argument("--template-name", default="nginx",
 parser.add_argument("--carbon", help="carbon host:port to send http stats")
 parser.add_argument("--carbon-interval", default=10, type=int,
                     help="carbon host:port to send http stats")
-parser.add_argument("--carbon-delay", default=None, type=int,
-                    help="stats delay (defaults to interval)")
+parser.add_argument(
+    "--carbon-delay", default=5., type=float,
+    help="specify number of seconds to delay the stat calculation and delivery")
 parser.add_argument("--carbon-prefix",
                     help="carbon metrics prefix (default: nginx2es.$hostname")
 parser.add_argument("--timeout", type=int, default=30,
