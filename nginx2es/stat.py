@@ -140,6 +140,7 @@ class Stat(threading.Thread):
                     self.send_metrics(self.metrics(rows), ts)
                 except socket.error:
                     # retry on network error
+                    self.connect()
                     self.send_metrics(self.metrics(rows), ts)
             except:
                 logging.error("can't send metrics", exc_info=True)
