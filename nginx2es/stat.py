@@ -219,25 +219,6 @@ class Stat(threading.Thread):
         ]).bytes_sent.sum().items():
             yield self.metric_name('bytes_sent', dims), value
 
-        # It doesn't make sense to drill exact percentiles deeper than host, because
-        # you don't really want to know request time percentiles for any
-        # request path and they can't be re-aggregated from drilled values.
-        # Instead, the approximation of different request paths percentiles
-        # should be calculated from the histograms (there is a handy
-        # quantileExactWeighted() function in clickhouse for that).
-
-        # request_time percentiles
-        g = df.groupby('host')
-        for (host, p), value in g.request_time.quantile(self.quantiles).items():
-            yield self.metric_name('request_time', 'percentiles',
-                                   host, 'p%d' % (p * 100)), value
-
-        g = df[pd.notnull(df.upstream_response_time)].groupby('host')
-        # upstream_response_time percentiles
-        for (host, p), value in g.upstream_response_time.quantile(self.quantiles).items():
-            yield self.metric_name('upstream_response_time', 'percentiles',
-                                   host, 'p%d' % (p * 100)), value
-
     def metric_name(self, *args):
         parts = self.prefix.split('.')
         for i in args:
