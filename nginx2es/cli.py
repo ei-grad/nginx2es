@@ -7,6 +7,8 @@ import logging
 import socket
 import sys
 
+import dateutil
+
 from arconfig import LoadConfigAction, GenConfigAction
 
 from elasticsearch import Elasticsearch, ConnectionError
@@ -87,6 +89,10 @@ parser.add_argument("filename", nargs="?", default="/var/log/nginx/access.json")
 parser.add_argument("--chunk-size", type=int, default=500, help="chunk size for bulk requests")
 parser.add_argument("--elastic", action="append",
                     help="elasticsearch cluster address")
+parser.add_argument("--min-timestamp",
+                    help="skip records with timestamp less than specified")
+parser.add_argument("--max-timestamp",
+                    help="skip records with timestamp more than specified")
 parser.add_argument("--force-create-template", action="store_true",
                     help="force create index template")
 parser.add_argument("--geoip", help="GeoIP database file path")
@@ -146,6 +152,10 @@ def main():
     es_kwargs = {'timeout': args.timeout}
     if args.elastic:
         es_kwargs['hosts'] = args.elastic
+    if args.min_timestamp:
+        es_kwargs['min_timestamp'] = dateutil.parser.parse(args.min_timestamp)
+    if args.max_timestamp:
+        es_kwargs['max_timestamp'] = dateutil.parser.parse(args.max_timestamp)
     es = Elasticsearch(**es_kwargs)
 
     if args.geoip is None:

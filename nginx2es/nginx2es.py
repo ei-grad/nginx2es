@@ -7,10 +7,16 @@ from elasticsearch.helpers import streaming_bulk
 
 class Nginx2ES(object):
 
-    def __init__(self, es, parser, index, stat=None, chunk_size=500, max_retries=3, max_delay=10.):
+    def __init__(self, es, parser, index, stat=None,
+                 min_timestamp=None,
+                 max_timestamp=None,
+                 chunk_size=500,
+                 max_retries=3, max_delay=10.):
         self.es = es
         self.parser = parser
         self.index = index
+        self.min_timestamp = min_timestamp
+        self.max_timestamp = max_timestamp
         self.chunk_size = chunk_size
         self.max_retries = max_retries
         self.max_delay = max_delay
@@ -20,6 +26,10 @@ class Nginx2ES(object):
         for line_num, line in enumerate(file):
             doc = self.parser(line)
             if doc is not None:
+                if self.min_timestamp is not None and self.min_timestamp > doc['@timestamp']:
+                    continue
+                if self.max_timestamp is not None and self.max_timestamp <= doc['@timestamp']:
+                    continue
                 if self.stat is not None:
                     self.stat.hit(doc)
                 yield {
