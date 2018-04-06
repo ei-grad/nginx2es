@@ -7,14 +7,9 @@ import dateutil.parser
 import fast_json as json
 
 
-def timestamp_parser(ts):
-    # python2.x strptime doesn't support %z :-(
-    return dateutil.parser.parse(ts)
-
-
 class AccessLogParser(object):
     def __init__(self, hostname, extensions=None, geoip=None,
-                 timestamp_parser=timestamp_parser):
+                 timestamp_parser=dateutil.parser.parse):
         self.hostname = hostname
         self.extensions = extensions or []
         self.timestamp_parser = timestamp_parser
