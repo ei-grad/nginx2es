@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker run --privileged -i -v `pwd`:/usr/src -v /tmp:/tmp edadeal/fpm:xenial \
+docker run --privileged -i --rm -v `pwd`:/usr/src -v /tmp:/tmp edadeal/fpm:xenial \
    fpm -s python -t deb \
        --python-package-name-prefix python3 \
        --prefix /usr \
@@ -10,6 +10,17 @@ docker run --privileged -i -v `pwd`:/usr/src -v /tmp:/tmp edadeal/fpm:xenial \
        --deb-upstream-changelog ChangeLog \
        .
 
-package_cloud push ei-grad/nginx2es/ubuntu/xenial python3-nginx2es*.deb
+docker run --privileged -i --rm -v `pwd`:/usr/src -v /tmp:/tmp edadeal/fpm:xenial bash -c '
+set -x
+for i in elasticsearch entrypoints fast-json inotify-simple arconfig; do
+    fpm -s python -t deb \
+       --python-package-name-prefix python3 \
+       --prefix /usr \
+       --python-install-lib lib/python3/dist-packages \
+       --python-bin python3 \
+       --python-pip pip3 \
+       $i
+done
+'
 
-rm -f python3-nginx2es*.deb
+package_cloud push --skip-errors ei-grad/nginx2es/ubuntu/xenial *.deb

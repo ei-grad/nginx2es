@@ -8,3 +8,4 @@ pandas
 python-dateutil
 raven
 six
+arconfig
