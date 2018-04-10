@@ -6,6 +6,8 @@ After=nginx.service
 Type=simple
 User=nginx
 Group=nginx
+Restart=always
+MemoryMax=256M
 
 ExecStart=/usr/bin/nginx2es --config /etc/nginx2es.conf
 TimeoutSec=300
