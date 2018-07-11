@@ -29,8 +29,6 @@ class Stat(threading.Thread):
     ]
     columns_set = set(columns)
 
-    quantiles = [.50, .75, .90, .99]
-
     def __init__(self, prefix, host, port=2003, use_udp=False, interval=10,
                  delay=5.):
         """Create new Stat instance
