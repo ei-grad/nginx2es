@@ -39,7 +39,6 @@ args = (
     '-d', 'python3.5',
     '-d', 'python3.5-gdbm',
     '-d', 'libcap-ng0',
-    '--config-files', '/etc/default/{}'.format(pkg_name),
     '--config-files', '/etc/{}.conf'.format(pkg_name),
 )
 
