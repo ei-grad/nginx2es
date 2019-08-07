@@ -4,3 +4,11 @@ build
 ChangeLog
 AUTHORS
 *.deb
+*.swo
+*.swp
+*~
+*.pyc
+__pycache__
+
+/.idea/
+*.pem

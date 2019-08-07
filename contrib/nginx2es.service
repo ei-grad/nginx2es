@@ -1,0 +1,27 @@
+[Unit]
+Description=Put nginx logs to Elasticsearch and send stats to carbon
+Documentation=https://github.com/ei-grad/nginx2es
+After=nginx.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+User=nginx
+Group=nginx
+Restart=always
+MemoryMax=256M
+
+Restart=always
+RestartSec=5
+
+TimeoutStartSec=5
+TimeoutStopSec=10
+TimeoutSec=300
+
+PIDFile=/var/run/nginx2es.pid
+ExecStart=/usr/bin/nginx2es --config /etc/nginx2es.conf
+
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
