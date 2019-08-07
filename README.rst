@@ -23,6 +23,17 @@ Install with pip:
 
     pip install nginx2es
 
+Install with apt:
+
+.. code-block:: bash
+
+    apt-get update
+    apt-get install gnupg2 apt-transport-https ca-certificates -y
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
+    echo "deb https://dl.bintray.com/asten/nginx2es xenial main" | tee -a /etc/apt/sources.list.d/nginx2es.list
+    apt-get update
+    apt-get install nginx2es -y
+
 Features
 --------
 
