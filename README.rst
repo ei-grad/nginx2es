@@ -5,14 +5,35 @@ Nginx access.log have to be formatted with this format:
 
 .. code-block:: nginx
 
-    log_format main_ext
-        '$remote_addr $http_host $remote_user [$time_local] "$request" '
-        '$status $body_bytes_sent "$http_referer" '
-        '"$http_user_agent" "$http_x_forwarded_for" '
-        'rt=$request_time ua="$upstream_addr" '
-        'us="$upstream_status" ut="$upstream_response_time" '
-        'ul="$upstream_response_length" '
-        'cs=$upstream_cache_status';
+    log_format  main  escape=json '{'
+      '"timestamp": "$time_iso8601",'
+      '"request_id": "$request_id",'
+      '"message": "$remote_addr $http_host $request $status $bytes_sent $request_time",'
+      '"bytes_sent": "$bytes_sent",'
+      '"connection": "$connection",'
+      '"connection_requests": "$connection_requests",'
+      '"content_type": "$http_content_type",'
+      '"forwarded_for": "$http_x_forwarded_for",'
+      '"gzip_ratio": "$gzip_ratio",'
+      '"host": "$http_host",'
+      '"referrer": "$http_referer",'
+      '"remote_addr": "$remote_addr",'
+      '"remote_user": "$remote_user",'
+      '"request_length": "$request_length",'
+      '"request_method": "$request_method",'
+      '"request_time": "$request_time",'
+      '"request_uri": "$request_uri",'
+      '"server_protocol": "$server_protocol",'
+      '"status": "$status",'
+      '"upstream_addr": "$upstream_addr",'
+      '"upstream_cache_status": "$cache_status",'
+      '"upstream_connect_time": "$upstream_connect_time",'
+      '"upstream_response_length": "$upstream_response_length",'
+      '"upstream_response_time": "$upstream_response_time",'
+      '"upstream_status": "$upstream_status",'
+      '"user_agent": "$http_user_agent",'
+      '"request_id": "$request_id",'
+    '}';
 
 Install
 -------
