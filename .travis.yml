@@ -5,6 +5,7 @@ python: 3.6
 before_install:
   - sudo apt-get install -y ruby ruby-dev rubygems build-essential libffi-dev devscripts
     libsystemd-dev
+  - sudo ln -snf /usr/include/locale.h /usr/include/xlocale.h
   - sudo gem install -n /usr/local/bin --no-ri --no-rdoc fpm
 
 addons:
