@@ -15,7 +15,7 @@
     },
 
     "version": {
-        "name": "0.8.0",
+        "name": "0.8.0-bionic",
         "desc": "Put nginx logs to Elasticsearch and send stats to carbon",
         "released": "2019-08-07",
         "vcs_tag": "0.8.0",
