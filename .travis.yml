@@ -1,6 +1,6 @@
-dist: xenial
+dist: bionic
 language: python
-python: 3.5.2
+python: 3
 
 before_install:
   - sudo apt-get install -y ruby ruby-dev rubygems build-essential libffi-dev devscripts

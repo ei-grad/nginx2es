@@ -14,7 +14,7 @@ ENV_PATH = os.getenv("ENV_PATH", "/usr/share/python3/%s" % pkg_name)
 pip = plumbum.local[os.path.join(ENV_PATH, 'bin', 'pip3')]
 
 log.info("Creating virtualenv %r", ENV_PATH)
-virtualenv['-p', 'python3.5', ENV_PATH] & plumbum.FG
+virtualenv['-p', 'python3', ENV_PATH] & plumbum.FG
 
 log.info("Installing package %r", pkg_name)
 pip['install', '--progress-bar=off', '--no-binary=:all:', '-U', "git+https://github.com/asteny/nginx2es"] & plumbum.FG
@@ -36,8 +36,8 @@ args = (
     '--deb-systemd', 'contrib/{}.service'.format(pkg_name),
     '-v', version,
     '-p', "package",
-    '-d', 'python3.5',
-    '-d', 'python3.5-gdbm',
+    '-d', 'python3',
+    '-d', 'python3-gdbm',
     '-d', 'libcap-ng0',
     '--config-files', '/etc/{}.conf'.format(pkg_name),
 )

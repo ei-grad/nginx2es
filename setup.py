@@ -37,6 +37,6 @@ setup(
         ],
     },
     extras_require={
-        ':python_version < "3.6.5"': 'typing >= 3.5.2',
+        ':python_version < "4.0"': 'typing >= 3.5.2',
     },
 )
