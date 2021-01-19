@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 from setuptools import setup, find_packages
 
 
-__version__ = '0.8'
+__version__ = '1.0'
 __author__ = 'Andrew Grigorev <andrew@ei-grad.ru>'
 
 setup(
@@ -18,7 +18,7 @@ setup(
     install_requires=(
         'arconfig==0.1.3',
         'Click==6.2',
-        'elasticsearch==6.2.0',
+        'elasticsearch>=7.0.0,<8.0.0',
         'entrypoints==0.2.3',
         'fast-json==0.3.0',
         'inotify-simple==1.1.7',
@@ -30,6 +30,7 @@ setup(
         'six==1.10.0',
         'ujson==1.35',
         'urllib3==1.22',
+        'yarl',
     ),
     entry_points={
         'console_scripts': [
